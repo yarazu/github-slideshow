@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fernweh Swipe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=IBM+Plex+Mono:wght@500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen swipe deck of travel-poster cards with a boarding-pass stub; passport column on wide screens, bottom sheet on phones */
+:root{
+  --bg:#E6EBEF;
+  --surface:#FCFDFE;
+  --sunk:#F0F3F6;
+  --ink:#12202C;
+  --muted:#596673;
+  --line:#CBD4DC;
+  --warm:#C4431D;
+  --cold:#0F7A90;
+  --med:#2443B8;
+  --yes:#1A8F52;
+  --no:#CF3B3B;
+  --star:#B47A00;
+  --accent:var(--ink);
+  --shadow:0 22px 44px -22px rgba(18,32,44,.55), 0 2px 6px rgba(18,32,44,.08);
+  --font-display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",Impact,sans-serif;
+  --font-body:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C131A; --surface:#151F29; --sunk:#101820; --ink:#E7EDF2; --muted:#94A2AF; --line:#2A3846;
+    --warm:#F07A52; --cold:#45C0D6; --med:#8A9FFB; --yes:#3CCB7F; --no:#FF6B6B; --star:#F2B632;
+    --shadow:0 22px 44px -20px rgba(0,0,0,.8), 0 2px 6px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C131A; --surface:#151F29; --sunk:#101820; --ink:#E7EDF2; --muted:#94A2AF; --line:#2A3846;
+  --warm:#F07A52; --cold:#45C0D6; --med:#8A9FFB; --yes:#3CCB7F; --no:#FF6B6B; --star:#F2B632;
+  --shadow:0 22px 44px -20px rgba(0,0,0,.8), 0 2px 6px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 var(--font-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+a{color:inherit}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.app{min-height:100%;max-width:1200px;margin:0 auto;padding-inline:16px;display:flex;flex-direction:column;overflow-x:hidden;overflow-x:clip}
+.app[data-cat="warm"]{--accent:var(--warm)}
+.app[data-cat="kalt"]{--accent:var(--cold)}
+.app[data-cat="mediterran"]{--accent:var(--med)}
+[data-cat="warm"]{--c:var(--warm)}
+[data-cat="kalt"]{--c:var(--cold)}
+[data-cat="mediterran"]{--c:var(--med)}
+[data-cat="alle"]{--c:var(--ink)}
+
+/* header */
+.top{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding-block:14px 10px}
+.brand{display:flex;align-items:baseline;gap:8px;text-decoration:none;color:var(--ink)}
+.brand-a{font:900 30px/.9 var(--font-display);text-transform:uppercase;letter-spacing:.01em}
+.brand-b{font:600 10px/1 var(--font-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:4px 5px 3px}
+.tabs{display:flex;gap:2px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;margin-left:auto;min-width:0}
+.tabs a{display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;border-radius:999px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none;white-space:nowrap;transition:background .15s,color .15s}
+.tabs a i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.tabs a[data-cat="alle"] i{background:conic-gradient(var(--warm) 0 33%,var(--cold) 0 66%,var(--med) 0)}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current="page"]{background:var(--ink);color:var(--surface)}
+.tabs a:focus-visible,.brand:focus-visible,.pass-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.pass-btn{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:14px;cursor:pointer}
+.pass-btn b{font:600 12px/1 var(--font-mono);min-width:22px;padding:4px 6px;border-radius:999px;background:var(--ink);color:var(--surface);text-align:center}
+@media (max-width:719.98px){
+  .pass-btn{margin-left:auto}
+  .tabs{order:3;flex:1 1 100%;margin-left:0}
+  .tabs a{flex:1;padding:8px 6px}
+}
+
+.main{flex:1;display:grid;grid-template-columns:minmax(0,1fr);gap:28px;padding-block:6px 28px}
+@media (min-width:960px){
+  .main{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+}
+
+.eyebrow{font:600 11px/1.2 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
+
+/* home */
+.home{display:grid;gap:22px;align-content:start;min-width:0}
+.home-intro{display:grid;gap:12px}
+.home h1{font:900 clamp(42px,7.4vw,80px)/.86 var(--font-display);text-transform:uppercase;margin:0;letter-spacing:.005em;text-wrap:balance;max-width:13ch}
+.lede{max-width:58ch;color:var(--muted);margin:0;font-size:16px}
+.zones{display:grid;gap:16px;grid-template-columns:1fr}
+@media (min-width:640px){.zones{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.zone{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:var(--ink);transition:transform .2s,box-shadow .2s;min-width:0}
+.zone:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.zone:focus-visible{outline:3px solid var(--c);outline-offset:3px}
+.zone-art{position:relative;aspect-ratio:4/3;max-width:100%;overflow:hidden}
+.zone-art svg,.visa-art svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.zone-count{position:absolute;left:10px;top:10px;font:600 10px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,.9);color:#12202C}
+.zone-body{padding:14px 16px 16px;display:grid;gap:6px;min-width:0}
+.zone h2{font:900 36px/.9 var(--font-display);text-transform:uppercase;margin:0;color:var(--c)}
+.zone-sub{margin:0;font-weight:600;font-size:14px}
+.zone-list{margin:0;color:var(--muted);font-size:13px}
+.zone-go{font:600 12px/1 var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--c);margin-top:4px}
+@media (max-width:639.98px){
+  .zone{flex-direction:row}
+  .zone-art{width:40%;aspect-ratio:auto;min-height:150px;flex:none}
+  .zone h2{font-size:30px}
+}
+.mix{justify-self:start;display:inline-flex;align-items:center;gap:10px;padding:12px 18px;border-radius:999px;background:var(--ink);color:var(--surface);text-decoration:none;font-weight:600}
+.mix i{width:10px;height:10px;border-radius:50%;background:conic-gradient(var(--warm) 0 33%,var(--cold) 0 66%,var(--med) 0)}
+.mix:focus-visible{outline:3px solid var(--med);outline-offset:3px}
+.fine{margin:0;color:var(--muted);font-size:12px;max-width:60ch}
+
+/* deck */
+.deck-view{display:flex;flex-direction:column;align-items:center;gap:14px;min-width:0}
+.deck-head{width:100%;max-width:400px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:4px 12px}
+.deck-head h1{font:900 44px/.86 var(--font-display);text-transform:uppercase;margin:0;color:var(--accent)}
+.deck-head p{grid-column:1/-1;margin:0;color:var(--muted);font-size:13px}
+.progress{font:500 12px/1 var(--font-mono);color:var(--muted);font-variant-numeric:tabular-nums;padding-bottom:4px}
+.pips{grid-column:1/-1;display:flex;gap:4px;margin-top:6px}
+.pips span{flex:1;height:4px;border-radius:2px;background:var(--line);transition:background .25s}
+.pips span[data-s="like"]{background:var(--yes)}
+.pips span[data-s="super"]{background:var(--star)}
+.pips span[data-s="nope"]{background:var(--muted);opacity:.45}
+
+.stage{position:relative;width:100%;max-width:400px;height:clamp(430px,calc(100dvh - 310px),640px)}
+@media (max-width:719.98px){.stage{height:clamp(430px,calc(100dvh - 350px),640px)}}
+.card{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--surface);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;transition:transform .38s cubic-bezier(.2,.8,.2,1),opacity .38s;transform-origin:50% 100%}
+.card[data-cat="warm"]{--accent:var(--warm)}
+.card[data-cat="kalt"]{--accent:var(--cold)}
+.card[data-cat="mediterran"]{--accent:var(--med)}
+.card[data-depth="1"]{transform:translateY(14px) scale(.95)}
+.card[data-depth="2"]{transform:translateY(28px) scale(.9);opacity:.85}
+.card[data-depth="3"]{transform:translateY(40px) scale(.86);opacity:0}
+.card[data-depth="1"],.card[data-depth="2"],.card[data-depth="3"]{pointer-events:none}
+.card.dragging{transition:none;cursor:grabbing}
+.card.leaving{pointer-events:none;z-index:20!important}
+
+.art{position:relative;flex:1 1 auto;min-height:170px;overflow:hidden;background:#24323F}
+.art svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.art::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.22;mix-blend-mode:multiply;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.cat-tag{position:absolute;top:14px;left:14px;z-index:2;font:600 10px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.9);color:#12202C}
+.art-title{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:48px 18px 14px;background:linear-gradient(to bottom,rgba(8,12,20,0),rgba(8,12,20,.62));color:#FFFFFF}
+.place{font:600 10.5px/1.2 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;opacity:.92}
+.art-title h2{font:800 34px/.92 var(--font-display);text-transform:uppercase;margin:5px 0 0;text-wrap:balance;letter-spacing:.005em}
+
+.stamp{position:absolute;z-index:3;top:20%;padding:7px 12px 6px;border:3px double currentColor;border-radius:8px;font:600 21px/1 var(--font-mono);text-transform:uppercase;letter-spacing:.08em;background:rgba(8,12,20,.35);pointer-events:none;white-space:nowrap}
+.stamp.like{left:16px;transform:rotate(-13deg);color:#5CF29A;opacity:var(--like,0)}
+.stamp.nope{right:16px;transform:rotate(12deg);color:#FF7B7B;opacity:var(--nope,0)}
+.stamp.super{left:50%;top:34%;transform:translateX(-50%) rotate(-6deg);color:#FFD34D;opacity:var(--super,0)}
+
+.ticket{position:relative;padding:16px 18px 16px;display:grid;gap:12px;border-top:2px dashed var(--line)}
+.ticket::before,.ticket::after{content:"";position:absolute;top:-11px;width:20px;height:20px;border-radius:50%;background:var(--bg)}
+.ticket::before{left:-10px}
+.ticket::after{right:-10px}
+.route{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:end;gap:10px}
+.route small,.facts dt{display:block;font:500 9.5px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.ap b{font:600 25px/1 var(--font-mono);letter-spacing:.02em}
+.flightline{position:relative;display:grid;justify-items:center;gap:4px;color:var(--accent);padding-bottom:2px;min-width:0}
+.flightline::before{content:"";position:absolute;left:0;right:0;top:8px;border-top:1.5px dashed var(--line)}
+.flightline svg{position:relative;background:var(--surface);padding:0 5px;box-sizing:content-box}
+.flightline span{font:500 9.5px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.price{padding-left:10px;border-left:1px solid var(--line)}
+.price span{font:600 15px/1 var(--font-mono);color:var(--accent);letter-spacing:.02em}
+.price i{font-style:normal;opacity:.22}
+.perks{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:13.5px;line-height:1.35}
+.perks li{display:flex;gap:9px;align-items:baseline}
+.perks li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none;transform:translateY(-1px)}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding-top:11px;border-top:1px solid var(--line)}
+.facts dd{margin:0;font-weight:600;font-size:13.5px;line-height:1.25;font-variant-numeric:tabular-nums}
+
+.deck-end{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:12px;padding:28px;background:var(--surface);border:1.5px dashed var(--line);border-radius:20px}
+.deck-end h2{font:900 40px/.9 var(--font-display);text-transform:uppercase;margin:0;color:var(--accent);text-wrap:balance}
+.deck-end p{margin:0;color:var(--muted)}
+.end-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;text-decoration:none;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:transparent;color:var(--surface)}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.actions{display:flex;align-items:flex-start;justify-content:center;gap:16px;padding-top:26px}
+.act{display:grid;justify-items:center;gap:6px;background:none;border:0;padding:0;cursor:pointer;color:var(--muted);font:600 10px/1 var(--font-mono);letter-spacing:.1em;text-transform:uppercase}
+.act .ring{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);box-shadow:0 8px 18px -10px rgba(0,0,0,.4);transition:transform .15s}
+.act.small .ring{width:44px;height:44px;margin-top:8px}
+.act.no .ring{color:var(--no)}
+.act.yes .ring{color:var(--yes)}
+.act.star .ring{color:var(--star)}
+.act.small .ring{color:var(--muted)}
+.act:hover:not(:disabled) .ring{transform:scale(1.07)}
+.act:active:not(:disabled) .ring{transform:scale(.93)}
+.act:focus-visible .ring{outline:3px solid var(--accent);outline-offset:3px}
+.act:disabled{opacity:.35;cursor:default}
+.hint{margin:0;color:var(--muted);font:500 11px/1.3 var(--font-mono);letter-spacing:.04em;text-align:center}
+kbd{font:inherit;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--surface)}
+
+/* passport */
+.passport{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.pp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.pp-head h2{font:900 30px/.9 var(--font-display);text-transform:uppercase;margin:6px 0 0}
+.pp-close{border:1px solid var(--line);background:var(--surface);border-radius:50%;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.pp-stats{display:flex;flex-wrap:wrap;gap:6px}
+.pp-stats span{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:var(--sunk);font-size:12px;font-weight:600}
+.pp-stats i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.pp-stats b{font:600 11px/1 var(--font-mono)}
+.pp-empty{border:1.5px dashed var(--line);border-radius:14px;padding:18px;color:var(--muted);font-size:14px}
+.pp-empty p{margin:0}
+.pp-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.visa{position:relative;display:flex;gap:12px;padding:10px;border-radius:14px;background:var(--sunk);min-width:0}
+.visa-art{position:relative;width:76px;aspect-ratio:4/3;border-radius:9px;overflow:hidden;flex:none;align-self:flex-start}
+.visa-body{display:grid;gap:2px;min-width:0}
+.visa-code{font:600 10.5px/1.2 var(--font-mono);letter-spacing:.1em;color:var(--c)}
+.visa-body strong{font-size:15px;line-height:1.2}
+.visa-meta{color:var(--muted);font-size:12.5px;line-height:1.3}
+.visa-links{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:12.5px}
+.visa-links a,.linkish{color:var(--ink);font-weight:600;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.visa-links button,.linkish{background:none;border:0;padding:0;cursor:pointer;font-size:12.5px;color:var(--muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.visa.is-super{background:var(--surface);outline:1.5px solid var(--star)}
+.visa.is-super::after{content:"Traumziel";position:absolute;right:10px;top:9px;transform:rotate(7deg);border:2px solid var(--star);color:var(--star);font:600 9.5px/1 var(--font-mono);padding:4px 6px 3px;border-radius:4px;letter-spacing:.12em;text-transform:uppercase}
+.pp-foot{display:grid;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.linkish{justify-self:start;font-size:13px}
+.linkish.armed{color:var(--no);text-decoration-color:currentColor}
+.scrim{position:fixed;inset:0;z-index:55;background:rgba(8,12,18,.45)}
+
+@media (min-width:960px){
+  .passport{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100dvh - 32px);overflow:auto}
+  .pass-btn,.pp-close,.only-narrow{display:none!important}
+  .scrim{display:none!important}
+}
+@media (max-width:959.98px){
+  .passport{position:fixed;left:0;right:0;bottom:0;z-index:60;max-height:82%;overflow:auto;border-radius:22px 22px 0 0;border-bottom:0;padding:18px 16px calc(20px + env(safe-area-inset-bottom,0px));transform:translateY(105%);visibility:hidden;transition:transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s .32s;box-shadow:0 -20px 40px -20px rgba(0,0,0,.45)}
+  .passport.open{transform:none;visibility:visible;transition:transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s}
+}
+@media (prefers-reduced-motion: reduce){
+  .card,.zone,.passport,.act .ring{transition-duration:.01s!important}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <a class="brand" href="#start" aria-label="Fernweh Swipe, zur Übersicht"><span class="brand-a">Fernweh</span><span class="brand-b">Swipe</span></a>
+    <nav class="tabs" aria-label="Klimazone">
+      <a href="#warm" data-cat="warm"><i></i>Warm</a>
+      <a href="#kalt" data-cat="kalt"><i></i>Kalt</a>
+      <a href="#mediterran" data-cat="mediterran"><i></i>Mediterran</a>
+      <a href="#alle" data-cat="alle"><i></i>Alle</a>
+    </nav>
+    <button class="pass-btn" id="passBtn" type="button" aria-controls="passport" aria-expanded="false">Reisepass <b id="passCount">0</b></button>
+  </header>
+
+  <main class="main">
+    <section class="home" id="home" aria-labelledby="homeTitle">
+      <div class="home-intro">
+        <p class="eyebrow">Abflug Frankfurt (FRA) · 18 Reisen · 3 Klimazonen</p>
+        <h1 id="homeTitle">Wohin geht dein nächster großer Urlaub?</h1>
+        <p class="lede">Wisch nach rechts, was dich reizt, und nach links, was nicht. Nach oben gewischt wird eine Reise zu deinem Traumziel. Alles Gemerkte landet mit Stempel in deinem Reisepass.</p>
+      </div>
+      <div class="zones" id="zones"></div>
+      <a class="mix" href="#alle"><i></i>Alle 18 Reisen gemischt swipen</a>
+      <p class="fine">Reisezeit, Temperatur, Flugzeit ab Frankfurt und Preisklasse sind Richtwerte zur Orientierung. Hier wird nichts gebucht.</p>
+    </section>
+
+    <section class="deck-view" id="deckView" aria-labelledby="deckTitle" hidden>
+      <div class="deck-head">
+        <h1 id="deckTitle">Warm</h1>
+        <span class="progress" id="progress"></span>
+        <p id="deckSub"></p>
+        <div class="pips" id="pips" aria-hidden="true"></div>
+      </div>
+      <div class="stage" id="stage">
+        <div class="deck-end" id="deckEnd" hidden>
+          <p class="eyebrow">Stapel durch</p>
+          <h2 id="endTitle"></h2>
+          <p id="endText"></p>
+          <div class="end-actions">
+            <a class="btn primary" id="endNext" href="#start">Weiter</a>
+            <button class="btn" id="endRetry" type="button">Abgelehnte nochmal zeigen</button>
+            <button class="btn only-narrow" id="endPass" type="button">Reisepass öffnen</button>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="act small" id="btnUndo" type="button" aria-label="Letzte Entscheidung zurücknehmen"><span class="ring"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 7H4V2M4.6 7.4A8 8 0 1 1 4 13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Zurück</span></button>
+        <button class="act no" id="btnNope" type="button"><span class="ring"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></span><span>Nö</span></button>
+        <button class="act star" id="btnSuper" type="button"><span class="ring"><svg viewBox="0 0 24 24" width="25" height="25" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z" fill="currentColor"/></svg></span><span>Traumziel</span></button>
+        <button class="act yes" id="btnLike" type="button"><span class="ring"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 4.5 7.1 4.5c2 0 3.5 1.1 4.9 2.9 1.4-1.8 2.9-2.9 4.9-2.9 3.5 0 5.6 3.5 4.4 6.8-1.8 4.6-9.3 9.2-9.3 9.2z" fill="currentColor"/></svg></span><span>Will ich</span></button>
+      </div>
+      <p class="hint">Karte wischen oder <kbd>←</kbd> Nö · <kbd>↑</kbd> Traumziel · <kbd>→</kbd> Will ich · <kbd>Z</kbd> zurück</p>
+    </section>
+
+    <aside class="passport" id="passport" aria-labelledby="passTitle">
+      <div class="pp-head">
+        <div><p class="eyebrow">Reisepass</p><h2 id="passTitle">Deine Favoriten</h2></div>
+        <button class="pp-close" id="passClose" type="button" aria-label="Reisepass schließen"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="pp-stats" id="passStats"></div>
+      <div class="pp-empty" id="passEmpty"><p>Noch kein Stempel. Wisch eine Reise nach rechts, dann landet sie hier.</p></div>
+      <ol class="pp-list" id="passList"></ol>
+      <div class="pp-foot">
+        <button class="linkish" id="resetAll" type="button">Alles zurücksetzen</button>
+        <p class="fine">Die Merkliste bleibt nur in diesem Browser gespeichert.</p>
+      </div>
+    </aside>
+  </main>
+  <div class="scrim" id="scrim" hidden></div>
+  <p class="sr-only" id="live" aria-live="polite"></p>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- poster illustration kit (400 x 300 viewBox) ---------- */
+function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hashStr(s){ let h = 2166136261; for (const ch of s){ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+function sceneSVG(trip, uid){
+  let defs = '', n = 0;
+  const rnd = mulberry32(hashStr(trip.id));
+  const nid = () => `${uid}-${n++}`;
+  const r1 = v => Math.round(v * 10) / 10;
+  const stopTag = (s, k, len) => { const [c, o] = Array.isArray(s) ? s : [s, 1]; return `<stop offset="${len > 1 ? (k / (len - 1)).toFixed(3) : 0}" stop-color="${c}" stop-opacity="${o}"/>`; };
+  const K = {
+    rnd, r1,
+    lin(stops, x2 = 0, y2 = 1){ const i = nid(); defs += `<linearGradient id="${i}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map((s, k) => stopTag(s, k, stops.length)).join('')}</linearGradient>`; return `url(#${i})`; },
+    rad(stops, cx, cy, r){ const i = nid(); defs += `<radialGradient id="${i}" gradientUnits="userSpaceOnUse" cx="${cx}" cy="${cy}" r="${r}">${stops.map((s, k) => stopTag(s, k, stops.length)).join('')}</radialGradient>`; return `url(#${i})`; },
+    glow(c){ const i = nid(); defs += `<radialGradient id="${i}"><stop offset="0" stop-color="${c}" stop-opacity=".9"/><stop offset=".35" stop-color="${c}" stop-opacity=".35"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`; return `url(#${i})`; },
+    blur(d){ const i = nid(); defs += `<filter id="${i}" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="${d}"/></filter>`; return `url(#${i})`; },
+    at(x, y, k, inner){ return `<g transform="translate(${r1(x)} ${r1(y)}) scale(${k})">${inner}</g>`; },
+    atf(x, y, k, inner){ return `<g transform="translate(${r1(x)} ${r1(y)}) scale(${-k} ${k})">${inner}</g>`; },
+    sky(stops){ return `<rect width="400" height="300" fill="${K.lin(stops)}"/>`; },
+    sun(x, y, r, c, g = c){ return `<circle cx="${x}" cy="${y}" r="${r * 4}" fill="${K.glow(g)}"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`; },
+    moon(x, y, r, c){ return `<circle cx="${x}" cy="${y}" r="${r * 3.2}" fill="${K.glow(c)}" opacity=".55"/><path d="M${x} ${y - r}A${r} ${r} 0 1 0 ${x} ${y + r}A${r1(r * .55)} ${r} 0 1 1 ${x} ${y - r}Z" fill="${c}" transform="rotate(-30 ${x} ${y})"/>`; },
+    stars(count, maxY, c = '#FFFFFF'){ let s = ''; for (let i = 0; i < count; i++) s += `<circle cx="${r1(rnd() * 400)}" cy="${r1(rnd() * maxY)}" r="${r1(rnd() * 1.1 + .35)}" fill="${c}" opacity="${r1(rnd() * .6 + .3)}"/>`; return s; },
+    cloud(x, y, k, c = '#FFFFFF', o = .92){ return K.at(x, y, k, `<path d="M-46 0Q-46 -15 -30 -15Q-26 -30 -8 -28Q4 -42 22 -30Q40 -32 42 -15Q56 -13 54 0Z" fill="${c}" opacity="${o}"/>`); },
+    aurora(colors, y0, op = .85){
+      let s = `<g filter="${K.blur(6)}" opacity="${op}">`;
+      colors.forEach((c, i) => {
+        const g = K.lin([[c, 0], [c, .45], [c, .95], [c, 0]]);
+        const ph = rnd() * 6, amp = 12 + rnd() * 10, fq = .011 + rnd() * .008, base = y0 + i * 20, h = 64 - i * 10;
+        let top = '', bot = ''; const ys = [];
+        for (let x = -20; x <= 420; x += 20){ const y = base + Math.sin(x * fq + ph) * amp + Math.sin(x * fq * 2.7 + ph) * amp * .3; ys.push([x, y]); top += `${x === -20 ? 'M' : 'L'}${x} ${r1(y - h)}`; bot = `L${x} ${r1(y)}` + bot; }
+        s += `<path d="${top}${bot}Z" fill="${g}"/>`;
+        ys.forEach(([x, y]) => { if (rnd() < .7) s += `<rect x="${r1(x + rnd() * 16)}" y="${r1(y - h * (.5 + rnd() * .5))}" width="2" height="${r1(h * .7)}" fill="${c}" opacity="${r1(.15 + rnd() * .25)}"/>`; });
+      });
+      return s + '</g>';
+    },
+    ridge(pts, fill, op = 1){ return `<path d="M0 300L${pts.map(p => `${p[0]} ${p[1]}`).join('L')}L400 300Z" fill="${fill}" opacity="${op}"/>`; },
+    hills(base, amp, fq, ph, fill, op = 1){ let d = 'M0 300'; for (let x = 0; x <= 400; x += 10){ const y = base + Math.sin(x * fq + ph) * amp + Math.sin(x * fq * 2.3 + ph * 1.7) * amp * .35; d += `L${x} ${r1(y)}`; } return `<path d="${d}L400 300Z" fill="${fill}" opacity="${op}"/>`; },
+    dune(x1, x2, px, py, base, light, shade){
+      const a = `C${r1(x1 + (px - x1) * .5)} ${base} ${r1(px - (px - x1) * .3)} ${py} ${px} ${py}`;
+      const b = `C${r1(px + (x2 - px) * .3)} ${py} ${r1(x2 - (x2 - px) * .4)} ${base} ${x2} ${base}`;
+      return `<path d="M${x1} ${base}${a}${b}L${x2} 300L${x1} 300Z" fill="${light}"/><path d="M${px} ${py}${b}L${r1(px + (x2 - px) * .2)} ${base}C${r1(px + (x2 - px) * .08)} ${r1(base - (base - py) * .45)} ${r1(px + (x2 - px) * .02)} ${r1(py + (base - py) * .25)} ${px} ${py}Z" fill="${shade}"/>`;
+    },
+    sea(y, stops, sh = '#FFFFFF', count = 18){ let s = `<rect y="${y}" width="400" height="${300 - y}" fill="${K.lin(stops)}"/>`; for (let i = 0; i < count; i++){ const t = Math.pow(rnd(), 1.3); const yy = y + 3 + t * (300 - y - 6); const w = 6 + t * 46 * (.4 + rnd() * .6); s += `<rect x="${r1(rnd() * (400 - w))}" y="${r1(yy)}" width="${r1(w)}" height="${r1(.8 + t * 1.4)}" rx=".7" fill="${sh}" opacity="${r1(.18 + rnd() * .3)}"/>`; } return s; },
+    reflect(x, y0, c, rows = 12){ let s = ''; for (let i = 0; i < rows; i++){ const yy = y0 + 3 + i * 6.5; const w = Math.max(6, 34 - i * 1.6 + rnd() * 12); s += `<rect x="${r1(x - w / 2 + (rnd() - .5) * 10)}" y="${r1(yy)}" width="${r1(w)}" height="1.8" rx=".9" fill="${c}" opacity="${r1(.35 + rnd() * .35)}"/>`; } return s; },
+    rays(y0, count = 5){ let s = ''; for (let i = 0; i < count; i++){ const x = 30 + i * 80 + rnd() * 30; s += `<path d="M${r1(x)} ${y0}L${r1(x + 26)} ${y0}L${r1(x + 90)} 300L${r1(x + 40)} 300Z" fill="#FFFFFF" opacity="${r1(.05 + rnd() * .05)}"/>`; } return s; },
+    lantern(x, y, g){ return `<circle cx="${x}" cy="${y}" r="7" fill="${g}"/><circle cx="${x}" cy="${y}" r="1.6" fill="#FFE6A8"/>`; },
+
+    /* features drawn around a local origin at their ground point */
+    palm(h, lean, c){
+      const tx = lean, ty = -h, L = h * .5;
+      let s = `<path d="M0 0Q${r1(lean * .15)} ${r1(-h * .55)} ${tx} ${ty}" stroke="${c}" stroke-width="${r1(h * .055)}" fill="none" stroke-linecap="round"/>`;
+      [-172, -145, -112, -78, -45, -14, 14, 166].forEach(a => {
+        const r = a * Math.PI / 180;
+        const ex = tx + Math.cos(r) * L, ey = ty + Math.sin(r) * L * .6 + L * .32;
+        const mx = tx + Math.cos(r) * L * .5, my = ty + Math.sin(r) * L * .45 - L * .1;
+        const nx = -Math.sin(r) * L * .11, ny = Math.cos(r) * L * .11;
+        s += `<path d="M${r1(tx)} ${r1(ty)}Q${r1(mx + nx)} ${r1(my + ny)} ${r1(ex)} ${r1(ey)}Q${r1(mx - nx)} ${r1(my - ny)} ${r1(tx)} ${r1(ty)}Z" fill="${c}"/>`;
+      });
+      return s + `<circle cx="${tx}" cy="${ty + 3}" r="${r1(h * .03)}" fill="${c}"/>`;
+    },
+    bungalow(wall, roof, lit = '#FFD27A'){ return `<path d="M-10 0V-15M10 0V-15M0 0V-15" stroke="${wall}" stroke-width="1.6"/><rect x="-17" y="-16.5" width="34" height="2.2" fill="${wall}"/><rect x="-12" y="-26" width="24" height="10" fill="${wall}"/><rect x="-3.5" y="-23.5" width="7" height="6" fill="${lit}"/><path d="M-17 -24.5L0 -38L17 -24.5Z" fill="${roof}"/>`; },
+    igloo(){ return `<circle cx="0" cy="-8" r="30" fill="${K.glow('#FFC46B')}"/><path d="M-22 0A22 22 0 0 1 22 0Z" fill="#CFE8FF" fill-opacity=".2" stroke="#EAF6FF" stroke-width="1.2"/><path d="M0 -22V0M-11 -19Q-14 -10 -15 0M11 -19Q14 -10 15 0M-19 -11Q0 -14 19 -11" stroke="#EAF6FF" stroke-width=".7" fill="none" opacity=".7"/><rect x="-11" y="-6" width="22" height="5" rx="2" fill="#F6E2C0"/>`; },
+    pine(h, c, snow){
+      const p = v => r1(v * h);
+      let s = `<path d="M0 ${p(-1)}L${p(.22)} ${p(-.62)}L${p(.12)} ${p(-.62)}L${p(.3)} ${p(-.3)}L${p(.16)} ${p(-.3)}L${p(.36)} 0L${p(-.36)} 0L${p(-.16)} ${p(-.3)}L${p(-.3)} ${p(-.3)}L${p(-.12)} ${p(-.62)}L${p(-.22)} ${p(-.62)}Z" fill="${c}"/>`;
+      if (snow) s += `<path d="M0 ${p(-1)}L${p(.08)} ${p(-.86)}L${p(-.08)} ${p(-.86)}ZM${p(-.22)} ${p(-.62)}L${p(-.12)} ${p(-.67)}L${p(.12)} ${p(-.67)}L${p(.22)} ${p(-.62)}ZM${p(-.3)} ${p(-.3)}L${p(-.16)} ${p(-.35)}L${p(.16)} ${p(-.35)}L${p(.3)} ${p(-.3)}Z" fill="${snow}"/>`;
+      return s;
+    },
+    tent(c, door){ return `<ellipse cx="0" cy="-4" rx="38" ry="14" fill="${K.glow(door)}"/><path d="M-30 0L-26 -20L0 -30L26 -20L30 0Z" fill="${c}"/><path d="M-13 -25L-15 0M13 -25L15 0M-26 -20L26 -20" stroke="#000000" stroke-opacity=".14" fill="none"/><path d="M-7 0V-13Q0 -20 7 -13V0Z" fill="${door}"/>`; },
+    skyline(c){
+      const towers = [[-92,38,10],[-78,60,12],[-62,46,9],[-48,84,11],[-32,56,10],[-18,70,8],[18,92,12],[34,62,10],[50,108,9],[64,70,12],[82,48,10]];
+      return towers.map(([x, h, w]) => `<rect x="${x - w / 2}" y="${-h}" width="${w}" height="${h}" fill="${c}"/>`).join('') + `<path d="M-6 0V-110L-4 -132L-2.5 -152L-1 -176L0 -200L1 -176L2.5 -152L4 -132L6 -110V0Z" fill="${c}"/><path d="M100 0V-76Q132 -40 126 0Z" fill="${c}"/>`;
+    },
+    balloon(c1, c2){ return `<path d="M0 -70C-26 -70 -30 -44 -21 -30L-7 -16H7L21 -30C30 -44 26 -70 0 -70Z" fill="${c1}"/><path d="M0 -70C-10 -70 -12 -44 -8 -30L-2.5 -16H2.5L8 -30C12 -44 10 -70 0 -70Z" fill="${c2}"/><path d="M-17 -63C-26 -52 -25 -40 -18 -31M17 -63C26 -52 25 -40 18 -31" stroke="${c2}" stroke-width="3" fill="none"/><path d="M-7 -16L-4 -8M7 -16L4 -8" stroke="#3B2A20" stroke-width=".8"/><rect x="-4.5" y="-8" width="9" height="7" rx="1" fill="#6B4A2E"/>`; },
+    acacia(c){ return `<path d="M-1 0L0 -20L-12 -32M0 -20L10 -34M-6 -26L-4 -33" stroke="${c}" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M-42 -34Q-28 -47 -6 -45Q16 -49 40 -40Q30 -32 6 -34Q-20 -30 -42 -34Z" fill="${c}"/>`; },
+    boulder(rx, ry, c, d){
+      let s = `<path d="M${-rx} 0C${-rx} ${r1(-ry * .75)} ${r1(-rx * .55)} ${-ry} ${r1(-rx * .05)} ${-ry}C${r1(rx * .6)} ${-ry} ${rx} ${r1(-ry * .6)} ${rx} 0Z" fill="${c}"/>`;
+      for (let j = 0; j < 5; j++){ const x = -rx * .62 + j * rx * .3; const y0 = -ry * (.86 - (x / rx) ** 2 * .45); s += `<path d="M${r1(x)} ${r1(y0)}Q${r1(x + rx * .07)} ${r1(-ry * .45)} ${r1(x + rx * .02)} 0" stroke="${d}" stroke-width="1.6" fill="none" opacity=".45"/>`; }
+      return s + `<path d="M${r1(-rx * .72)} ${r1(-ry * .5)}Q${r1(-rx * .45)} ${r1(-ry * .9)} ${r1(-rx * .02)} ${r1(-ry * .94)}" stroke="#FFFFFF" stroke-width="3" fill="none" opacity=".22" stroke-linecap="round"/>`;
+    },
+    tortoise(c, d){ return `<rect x="-17" y="-3" width="6" height="5" rx="2" fill="${d}"/><rect x="10" y="-3" width="6" height="5" rx="2" fill="${d}"/><path d="M19 -6Q29 -13 34 -6Q32 -1 21 -1Z" fill="${d}"/><path d="M-22 0Q-22 -20 0 -20Q22 -20 22 0Z" fill="${c}"/><path d="M-13 -2L-9 -12L0 -16L9 -12L13 -2M-9 -12L-5 -4M9 -12L5 -4M0 -16V-6M-5 -4H5" stroke="${d}" stroke-width="1.2" fill="none" opacity=".8"/>`; },
+    fish(c){ return `<path d="M-8 0Q0 -6 8 0Q0 6 -8 0ZM-7 0L-13 -4.5L-13 4.5Z" fill="${c}"/><circle cx="4" cy="-1" r=".9" fill="#10324A"/>`; },
+    coral(c){ return `<path d="M0 0V-18M0 -9L-9 -19M0 -5L8 -15M-9 -19V-26M8 -15L11 -24M0 -18L4 -27" stroke="${c}" stroke-width="4" fill="none" stroke-linecap="round"/>`; },
+    herd(count, y1, y2, c){
+      const a = []; for (let i = 0; i < count; i++) a.push([rnd() * 400, y1 + rnd() * (y2 - y1)]);
+      a.sort((p, q) => p[1] - q[1]);
+      return a.map(([x, y]) => K.at(x, y, r1(.55 + (y - y1) / (y2 - y1) * .8), `<ellipse cx="0" cy="-4.5" rx="4.2" ry="2.1" fill="${c}"/><ellipse cx="4.6" cy="-5.3" rx="1.7" ry="1.2" fill="${c}"/><path d="M-3 -3V0M-1.5 -3V0M2 -3V0M3.2 -3V0" stroke="${c}" stroke-width=".8"/>`)).join('');
+    },
+    house(w, h, c, roof, lit, snow){
+      const ridge = r1(-h - w * .4);
+      return `<rect x="${-w / 2}" y="${-h}" width="${w}" height="${h}" fill="${c}"/><path d="M${-w / 2 - 2} ${-h}L0 ${ridge}L${w / 2 + 2} ${-h}Z" fill="${roof}"/>` + (snow ? `<path d="M${-w / 2 - 2} ${-h}L0 ${ridge}L${w / 2 + 2} ${-h}" stroke="#FFFFFF" stroke-width="1.6" fill="none" opacity=".85"/>` : '') + `<rect x="${r1(-w * .32)}" y="${r1(-h * .7)}" width="${r1(w * .2)}" height="${r1(h * .3)}" fill="${lit}"/><rect x="${r1(w * .12)}" y="${r1(-h * .7)}" width="${r1(w * .2)}" height="${r1(h * .3)}" fill="${lit}"/>`;
+    },
+    cube(w, h, c, shade, door = '#2E4FB0'){ return `<rect x="${-w / 2}" y="${-h}" width="${w}" height="${h}" fill="${c}"/><rect x="${r1(w / 2 - w * .2)}" y="${-h}" width="${r1(w * .2)}" height="${h}" fill="${shade}"/><rect x="${r1(-w * .22)}" y="${r1(-h * .5)}" width="${r1(w * .16)}" height="${r1(h * .5)}" fill="${door}"/>`; },
+    dome(r, c){ return `<path d="M${r1(-r)} 0A${r1(r)} ${r1(r)} 0 0 1 ${r1(r)} 0Z" fill="${c}"/><path d="M0 ${r1(-r)}V${r1(-r - 4)}M-1.8 ${r1(-r - 2.6)}H1.8" stroke="#F6EEF0" stroke-width=".9"/>`; },
+    yacht(c, trim, lit){ return `<ellipse cx="0" cy="4" rx="48" ry="3" fill="${c}" opacity=".18"/><path d="M-46 -12H40Q48 -12 54 -15L44 0H-40Q-46 -5 -46 -12Z" fill="${c}"/><path d="M-43 -6H46" stroke="${trim}" stroke-width="2"/><path d="M-30 -12L-25 -20H22L32 -12Z" fill="${c}"/><rect x="-23" y="-18" width="44" height="3" fill="${trim}"/><path d="M-19 -20L-15 -27H12L18 -20Z" fill="${c}"/><rect x="-13" y="-25.5" width="25" height="2.6" fill="${trim}"/><path d="M-1 -27V-34M-5 -32H3" stroke="${c}" stroke-width="1.4"/>` + (lit ? [-18, -10, -2, 6, 14].map(x => `<rect x="${x}" y="-18" width="3" height="3" fill="${lit}"/>`).join('') : ''); },
+    sailboat(c, sail){ return `<ellipse cx="0" cy="3" rx="20" ry="2" fill="${c}" opacity=".2"/><path d="M-18 -4H20L15 2H-13Z" fill="${c}"/><path d="M0 -4V-46" stroke="#3A3F48" stroke-width="1.2"/><path d="M1.5 -45Q15 -26 16 -6H1.5Z" fill="${sail}"/><path d="M-1.5 -42V-6H-16Z" fill="${sail}" opacity=".92"/>`; },
+    ship(){ return `<ellipse cx="0" cy="4" rx="58" ry="3" fill="#FFFFFF" opacity=".15"/><path d="M-56 -14H50Q58 -14 62 -18L52 0H-50Q-56 -6 -56 -14Z" fill="#B8322B"/><path d="M-54 -10H56" stroke="#F4F1EC" stroke-width="1.6"/><path d="M-40 -14V-24H30L38 -14Z" fill="#F4F1EC"/><rect x="-36" y="-21" width="64" height="2.4" fill="#2A3442"/><path d="M-28 -24V-32H16L22 -24Z" fill="#F4F1EC"/><rect x="-4" y="-30" width="22" height="2.4" fill="#2A3442"/><path d="M-20 -32L-18 -42H-10L-12 -32Z" fill="#1D2B3A"/><path d="M8 -32V-44" stroke="#2A3442" stroke-width="1.2"/><rect x="-32" y="-16" width="8" height="2.6" rx="1.2" fill="#F08A24"/><rect x="-18" y="-16" width="8" height="2.6" rx="1.2" fill="#F08A24"/><rect x="-4" y="-16" width="8" height="2.6" rx="1.2" fill="#F08A24"/>`; },
+    iceberg(w, h, c1, c2){ return `<path d="M${r1(-w * .48)} 0L${r1(-w * .3)} 10L${r1(w * .35)} 12L${r1(w * .48)} 0Z" fill="${c1}" opacity=".18"/><path d="M${-w / 2} 0L${r1(-w * .35)} ${r1(-h * .6)}L${r1(-w * .1)} ${-h}L${r1(w * .15)} ${r1(-h * .7)}L${r1(w * .32)} ${r1(-h * .85)}L${w / 2} 0Z" fill="${c1}"/><path d="M${r1(-w * .1)} ${-h}L${r1(w * .15)} ${r1(-h * .7)}L${r1(w * .32)} ${r1(-h * .85)}L${w / 2} 0L${r1(w * .05)} 0Z" fill="${c2}"/>`; },
+    penguin(){ return `<ellipse cx="0" cy="-9" rx="4.2" ry="9" fill="#1B1F2A"/><ellipse cx="1.2" cy="-7.5" rx="2.6" ry="6.4" fill="#F7F8FA"/><circle cx=".6" cy="-17" r="3" fill="#1B1F2A"/><path d="M3 -17L6 -16L3 -15.4Z" fill="#F08A24"/><path d="M-2 0H1M1.6 0H4.4" stroke="#F08A24" stroke-width="1.2"/>`; },
+    person(c){ return `<circle cx="0" cy="-21" r="2.6" fill="${c}"/><circle cx="1.6" cy="-21.6" r=".9" fill="#FFE29A"/><path d="M-3 -18H3L4 -8L3 0H1L0 -7L-1 0H-3L-4 -8Z" fill="${c}"/>`; },
+    gulet(wood, sail){ return `<ellipse cx="2" cy="5" rx="54" ry="3" fill="${wood}" opacity=".25"/><path d="M14 -74L64 -20M14 -74L-46 -12M-14 -58L-46 -12" stroke="#3E2616" stroke-width=".6" opacity=".7"/><path d="M14 -14V-74M-14 -13V-58" stroke="#3E2616" stroke-width="1.8"/><path d="M14 -30L42 -24M-14 -26L8 -22" stroke="${sail}" stroke-width="3.2" stroke-linecap="round"/><path d="M-48 -12L50 -16Q46 -2 36 2H-38Q-46 0 -48 -12Z" fill="${wood}"/><path d="M-46 -8.5L48 -12" stroke="${sail}" stroke-width="1.5"/><path d="M50 -16L66 -20" stroke="${wood}" stroke-width="1.6"/><path d="M-30 -12V-19H6V-13Z" fill="#9A6238"/><rect x="-26" y="-17.5" width="4" height="3" fill="#F8E3B8"/><rect x="-18" y="-17.5" width="4" height="3" fill="#F8E3B8"/><rect x="-10" y="-17.5" width="4" height="3" fill="#F8E3B8"/><path d="M-40 -25H-8" stroke="${sail}" stroke-width="2.4"/><path d="M-38 -24V-13M-10 -24V-13" stroke="#3E2616" stroke-width=".8"/><path d="M14 -74V-82" stroke="#3E2616" stroke-width="1"/><rect x="14" y="-82" width="7" height="4.6" fill="#C8102E"/>`; },
+    riva(){ return `<path d="M-36 -1Q-84 5 -140 2M-36 2Q-74 12 -128 15M40 -4Q46 -2 48 2" stroke="#FFFFFF" stroke-width="2" fill="none" opacity=".75" stroke-linecap="round"/><path d="M-34 0L30 0Q38 -2 41 -8L-36 -8Z" fill="#7A3E1E"/><path d="M-36 -8L41 -8L37 -11L-32 -11Z" fill="#B0632F"/><path d="M-34 -4H36" stroke="#F5EBDD" stroke-width="1.2"/><path d="M8 -11L14 -18L21 -11Z" fill="#D4ECF7" opacity=".85"/><rect x="-16" y="-14" width="12" height="3" rx="1" fill="#F2E8D8"/>`; },
+    grandhotel(c, roof, lit){
+      let s = `<path d="M18 -58V-88H34V-58Z" fill="${c}"/><path d="M15 -88L26 -102L37 -88Z" fill="${roof}"/><path d="M-56 0V-46H56V0Z" fill="${c}"/><path d="M-60 -46L-51 -58H51L60 -46Z" fill="${roof}"/><path d="M-51 -58H51" stroke="#FFFFFF" stroke-width="2.4"/>`;
+      for (let row = 0; row < 4; row++) for (let col = 0; col < 11; col++) s += `<rect x="${r1(-49 + col * 9.4)}" y="${-40 + row * 9.5}" width="4.2" height="5.4" fill="${rnd() < .45 ? lit : '#7C8EA2'}"/>`;
+      return s + `<rect x="22" y="-80" width="8" height="8" fill="${lit}"/>`;
+    },
+    castle(c){
+      let s = `<path d="M-44 0V-20H44V0Z" fill="${c}"/><path d="M-30 -20V-46H-12V-20Z" fill="${c}"/><path d="M12 -20V-38H26V-20Z" fill="${c}"/>`;
+      [[-44, -24, 11, 8], [-30, -50, 3, 7], [12, -42, 2, 7]].forEach(([x0, y, cnt, step]) => { for (let i = 0; i < cnt; i++) s += `<rect x="${x0 + i * step}" y="${y}" width="4" height="4" fill="${c}"/>`; });
+      return s + `<path d="M-21 -46V-60" stroke="${c}" stroke-width="1.2"/><path d="M-21 -60H-12V-55H-21Z" fill="#C8102E"/>`;
+    },
+  };
+  const body = trip.scene(K);
+  return `<svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><defs>${defs}</defs>${body}</svg>`;
+}
+
+/* ---------- the 18 trips ---------- */
+const TRIPS = [
+  { id: 'malediven', cat: 'warm', name: 'Malediven', place: 'Malediven · Ari-Atoll', iata: 'MLE', stops: 'Direkt', title: 'Schlafen unter dem Meer',
+    perks: ['Schlafzimmer unter Wasser, Blick aufs Riff', 'Anreise im Wasserflugzeug', 'Dinner zu zweit auf einer Sandbank'],
+    season: 'Nov–Apr', temp: '30\u00A0°C', flight: 'ca. 10 h', price: 5, map: 'Ari Atoll, Malediven',
+    scene: k => k.sky(['#43B6E3', '#A6E6F2', '#F7F3D6'])
+      + k.sun(320, 44, 15, '#FFF8DE', '#FFF0B0')
+      + k.cloud(96, 54, .8) + k.cloud(236, 30, .5, '#FFFFFF', .75)
+      + `<path d="M22 129Q66 110 114 129Z" fill="#F3E2B3"/>`
+      + k.at(60, 121, .3, k.palm(100, 16, '#2E6B4F')) + k.at(84, 125, .24, k.palm(100, -14, '#2E6B4F'))
+      + `<rect y="128" width="400" height="172" fill="${k.lin(['#25C4D4', '#0F7FA6', '#073F6B'])}"/>`
+      + k.rays(128)
+      + `<path d="M0 128Q25 124 50 128T100 128T150 128T200 128T250 128T300 128T350 128T400 128" stroke="#E6FBFF" stroke-width="2" fill="none" opacity=".85"/>`
+      + k.hills(282, 5, .03, 1, '#D8C38F')
+      + k.at(40, 288, 1, k.coral('#FF8A7A')) + k.at(62, 292, .7, k.coral('#FFB26B')) + k.at(360, 290, 1.1, k.coral('#FF8A7A')) + k.at(338, 294, .7, k.coral('#F6D365'))
+      + `<rect x="194" y="128" width="12" height="80" fill="#CFF6FF" fill-opacity=".28" stroke="#E8FCFF" stroke-opacity=".6"/>`
+      + k.at(200, 128, 1.3, k.bungalow('#6B4630', '#C78A4E'))
+      + k.at(200, 268, 1, `<path d="M-80 0V-34Q-80 -60 -54 -60H54Q80 -60 80 -34V0Z" fill="#D9FBFF" fill-opacity=".28" stroke="#E9FDFF" stroke-width="1.6" stroke-opacity=".85"/><ellipse cx="0" cy="-22" rx="78" ry="34" fill="${k.glow('#FFC978')}"/><path d="M-40 -58V0M0 -60V0M40 -58V0" stroke="#E9FDFF" stroke-opacity=".35"/><rect x="-36" y="-24" width="6" height="18" rx="2" fill="#B98A5B"/><rect x="-32" y="-16" width="66" height="10" rx="3" fill="#F7EBD3"/><rect x="-28" y="-20" width="14" height="5" rx="2.5" fill="#FFFFFF"/><rect x="44" y="-30" width="2" height="24" fill="#B98A5B"/><circle cx="45" cy="-32" r="5" fill="#FFE2A6"/><rect x="-86" y="-2" width="172" height="6" rx="2" fill="#4E6170"/>`)
+      + k.at(92, 172, 1.3, k.fish('#FFB547')) + k.at(112, 184, .9, k.fish('#FFB547')) + k.atf(316, 192, 1.4, k.fish('#FF7A59')) + k.atf(332, 160, .9, k.fish('#FFE066')) + k.at(70, 222, 1, k.fish('#7FE0F2')) },
+
+  { id: 'borabora', cat: 'warm', name: 'Bora Bora', place: 'Bora Bora · Französisch-Polynesien', iata: 'BOB', stops: '2 Stopps', title: 'Bungalow über der Lagune',
+    perks: ['Glasboden über türkisem Wasser', 'Frühstück kommt per Kanu', 'Blick auf den Mont Otemanu'],
+    season: 'Mai–Okt', temp: '28 °C', flight: 'ca. 24 h', price: 5, map: 'Bora Bora',
+    scene: k => k.sky(['#EE876E', '#F8B88A', '#FDE4BD'])
+      + k.sun(322, 150, 20, '#FFF2D2', '#FFD49A')
+      + k.cloud(86, 58, .75, '#FFE6D2', .85)
+      + k.ridge([[0,196],[50,188],[95,170],[128,142],[148,110],[163,84],[174,62],[186,52],[196,66],[205,58],[215,82],[234,112],[262,140],[300,160],[350,176],[400,186]], k.lin(['#5C8A70', '#2E5446']))
+      + k.ridge([[0,202],[70,194],[120,186],[170,180],[230,188],[300,194],[400,198]], '#2A483D')
+      + k.sea(198, ['#43D1CA', '#25B3BE', '#1890A8'], '#E9FFFB')
+      + `<path d="M0 214Q100 208 200 214T400 212" stroke="#C4F5EC" stroke-width="2" fill="none" opacity=".7"/>`
+      + `<path d="M150 205L400 240" stroke="#5A3A26" stroke-width="2.6"/>`
+      + [[160,214,.5],[190,220,.6],[224,226,.72],[264,234,.86],[312,243,1.04],[370,254,1.28]].map(([x, y, s]) => k.at(x, y, s, k.bungalow('#6E472E', '#D39A5A'))).join('')
+      + k.at(36, 304, 1, k.palm(185, 34, '#1E3A31')) },
+
+  { id: 'sahara', cat: 'warm', name: 'Sahara', place: 'Erg Chebbi · Marokko', iata: 'ERH', stops: '1 Stopp', title: 'Nacht im Wüstencamp',
+    perks: ['Luxuszelt mit eigenem Bad in den Dünen', 'Kamelritt in den Sonnenuntergang', 'Dinner unter dem Sternenhimmel'],
+    season: 'Okt–Apr', temp: '25 °C', flight: 'ca. 6 h', price: 3, map: 'Erg Chebbi, Merzouga',
+    scene: k => { const g = k.glow('#FFC46B'); return k.sky(['#141B44', '#3B2F6B', '#9A4E6E', '#E58B67'])
+      + k.stars(110, 150)
+      + k.moon(306, 58, 15, '#FFF1CC')
+      + k.hills(198, 6, .02, 1, '#6E3A47')
+      + k.dune(-60, 250, 110, 166, 238, '#D9814F', '#9E4B3A')
+      + k.dune(140, 470, 302, 182, 246, '#CC7346', '#8E4234')
+      + k.at(196, 246, .62, k.tent('#E9D5B5', '#FFC46B')) + k.at(240, 250, .95, k.tent('#EAD7B8', '#FFC46B')) + k.at(292, 254, .78, k.tent('#E9D5B5', '#FFC46B'))
+      + k.dune(-90, 330, 60, 246, 330, '#E3925A', '#B45E3D')
+      + [[96,280],[124,272],[152,266],[180,262],[208,259]].map(([x, y]) => k.lantern(x, y, g)).join(''); } },
+
+  { id: 'dubai', cat: 'warm', name: 'Dubai', place: 'Dubai · Vereinigte Arabische Emirate', iata: 'DXB', stops: 'Direkt', title: 'Ballonfahrt über der Wüste',
+    perks: ['Sonnenaufgang im Heißluftballon', 'Suite mit Blick auf den Burj Khalifa', 'Dünen-Dinner mit Falknerei-Show'],
+    season: 'Nov–Mär', temp: '26 °C', flight: 'ca. 6 h', price: 4, map: 'Dubai Desert Conservation Reserve',
+    scene: k => k.sky(['#F09A5B', '#F7C27E', '#FBE3B9'])
+      + k.sun(96, 184, 22, '#FFF5DA', '#FFD08A')
+      + `<g opacity=".5">${k.at(292, 208, .95, k.skyline('#B0806A'))}</g>`
+      + k.hills(206, 5, .025, 2, '#E9B07A')
+      + k.dune(-40, 236, 80, 198, 252, '#EFB980', '#C98B57')
+      + k.dune(160, 460, 330, 202, 258, '#E8AC72', '#BF7F4C')
+      + k.dune(60, 480, 250, 244, 330, '#F2C08A', '#CB935E')
+      + k.at(146, 118, 1.55, k.balloon('#D9482B', '#F6D25B'))
+      + k.at(264, 146, .8, k.balloon('#1F8A8A', '#F4EFE2'))
+      + k.at(340, 86, .55, k.balloon('#7A3B69', '#F6D25B')) },
+
+  { id: 'seychellen', cat: 'warm', name: 'Seychellen', place: 'La Digue · Seychellen', iata: 'SEZ', stops: 'Direkt', title: 'Granit, Palmen, Schildkröten',
+    perks: ['Granitfelsen an der Anse Source d’Argent', 'Villa mit eigenem Strandabschnitt', 'Riesenschildkröten aus nächster Nähe'],
+    season: 'Apr–Mai, Okt–Nov', temp: '30\u00A0°C', flight: 'ca. 10 h', price: 5, map: "Anse Source d'Argent, La Digue",
+    scene: k => k.sky(['#4CBFE6', '#9FDDF1', '#E9F7F4'])
+      + k.cloud(110, 58, .9) + k.cloud(300, 40, .6, '#FFFFFF', .85)
+      + `<path d="M232 169Q282 148 346 169Z" fill="#4E8F6A" opacity=".75"/>`
+      + k.sea(168, ['#1E95B6', '#2DBEC6', '#8EE3D6'])
+      + k.hills(252, 5, .012, 2, '#F6E5C6')
+      + k.at(66, 258, 1, k.boulder(74, 84, '#A98480', '#7E5A56'))
+      + k.at(270, 260, 1, k.boulder(38, 42, '#9F7B76', '#7A5652'))
+      + k.at(352, 266, 1, k.boulder(86, 116, '#B48F87', '#86625C'))
+      + k.at(300, 266, 1, k.palm(205, -150, '#2D5A3E'))
+      + k.hills(284, 4, .02, 0, '#FBEFD8')
+      + k.at(170, 282, .95, k.tortoise('#6E5B45', '#4A3C2E')) },
+
+  { id: 'masaimara', cat: 'warm', name: 'Masai Mara', place: 'Masai Mara · Kenia', iata: 'NBO', stops: '+ Buschflug', title: 'Ballon über der Großen Migration',
+    perks: ['Safarizelt mit freistehender Wanne', 'Ballonfahrt bei Sonnenaufgang', 'Gnu-Herden am Mara-Fluss'],
+    season: 'Jul–Okt', temp: '27 °C', flight: 'ca. 10 h', price: 4, map: 'Masai Mara National Reserve',
+    scene: k => k.sky(['#E9893A', '#F5B45B', '#FBDC9A'])
+      + k.sun(214, 196, 30, '#FFF1C4', '#FFCF70')
+      + k.hills(198, 7, .012, .5, '#B97A45')
+      + k.hills(214, 4, .03, 1.5, '#C98F4E')
+      + k.herd(48, 218, 252, '#3D2A1F')
+      + k.at(86, 232, 1.3, k.acacia('#2E2118')) + k.at(336, 224, .8, k.acacia('#3A2A1F'))
+      + k.at(148, 124, 1.35, k.balloon('#A63A28', '#F2C14E')) + k.at(282, 96, .62, k.balloon('#355E3B', '#F2C14E'))
+      + k.hills(284, 6, .06, 0, '#7E5428') },
+
+  { id: 'lappland', cat: 'kalt', name: 'Lappland', place: 'Saariselkä · Finnland', iata: 'IVL', stops: '1 Stopp', title: 'Polarlicht vom Bett aus',
+    perks: ['Glasiglu mitten im Schnee', 'Huskyschlitten durch den Wald', 'Rauchsauna und Eisloch'],
+    season: 'Dez–Mär', temp: '−15 °C', flight: 'ca. 5 h', price: 4, map: 'Saariselkä, Finnland',
+    scene: k => { let s = k.sky(['#051024', '#0B2742', '#174A5C']) + k.stars(130, 210) + k.aurora(['#3EF29B', '#2DD8C3', '#9C6BFF'], 64, .9) + k.hills(206, 9, .012, 1, '#2F4F68') + k.hills(224, 5, .02, 2.5, '#9DB6CB');
+      for (let i = 0; i < 15; i++) s += k.at(i * 28 + k.rnd() * 10, 220 + k.rnd() * 8, 1, k.pine(26 + k.rnd() * 22, '#0D2233', '#C9DCEA'));
+      return s + k.hills(242, 4, .015, 1.2, '#AFC6D9')
+        + k.at(330, 248, .7, k.igloo()) + k.at(262, 252, .85, k.igloo()) + k.at(178, 260, 1.05, k.igloo()) + k.at(86, 272, 1.35, k.igloo())
+        + k.hills(286, 4, .02, 2, '#C6D8E6')
+        + k.at(10, 304, 1, k.pine(156, '#0A1B29', '#E4F0F8')) + k.at(394, 304, 1, k.pine(124, '#0A1B29', '#E4F0F8')); } },
+
+  { id: 'jukkasjarvi', cat: 'kalt', name: 'Jukkasjärvi', place: 'Jukkasjärvi · Schwedisch-Lappland', iata: 'KRN', stops: '1 Stopp', title: 'Suite aus Flusseis',
+    perks: ['Kunstsuite, jeden Winter neu aus Eis gebaut', 'Schlafsack auf Rentierfell bei −5 °C', 'Polarlicht-Safari am Torne-Fluss'],
+    season: 'Dez–Apr', temp: '−12 °C', flight: 'ca. 5 h', price: 4, map: 'Icehotel Jukkasjärvi',
+    scene: k => {
+      const torch = `<rect x="-1.2" y="-14" width="2.4" height="14" fill="#5B4A3A"/><circle cx="0" cy="-16" r="8" fill="${k.glow('#FFB14E')}"/><circle cx="0" cy="-16" r="2.2" fill="#FFD48A"/>`;
+      let s = k.sky(['#1A2557', '#3A5597', '#93B2DE']) + k.stars(50, 110) + k.aurora(['#7CF2C8', '#5FD6E8'], 56, .55);
+      for (let i = 0; i < 24; i++) s += k.at(i * 18 + k.rnd() * 8, 208, 1, k.pine(16 + k.rnd() * 16, '#18264A'));
+      s += `<rect y="206" width="400" height="94" fill="${k.lin(['#AFCBE8', '#E5F0FA'])}"/>`;
+      s += `<ellipse cx="200" cy="262" rx="120" ry="12" fill="${k.glow('#FFC27A')}"/>`;
+      s += k.at(200, 254, 1, `<path d="M-120 0V-40Q-120 -50 -108 -50H108Q120 -50 120 -40V0Z" fill="${k.lin(['#E6F5FD', '#A8CDE9'])}"/><path d="M-120 -17H120M-120 -34H120M-80 0V-17M-40 -17V-34M-60 -34V-50M40 0V-17M80 -17V-34M60 -34V-50M-100 -17V-34M100 0V-17" stroke="#FFFFFF" stroke-opacity=".55"/><path d="M-118 -48Q0 -58 118 -48" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M-20 0V-24Q-20 -42 0 -42Q20 -42 20 -24V0Z" fill="#DDEFFB"/><path d="M-15 0V-22Q-15 -36 0 -36Q15 -36 15 -22V0Z" fill="${k.lin(['#FFE2A8', '#F2A65A'])}"/>` + k.at(-34, 0, 1, torch) + k.at(34, 0, 1, torch));
+      return s + k.hills(288, 3, .02, 0, '#F4F9FD'); } },
+
+  { id: 'island', cat: 'kalt', name: 'Island', place: 'Vatnajökull · Island', iata: 'KEF', stops: 'Direkt', title: 'Im Inneren eines Gletschers',
+    perks: ['Geführte Tour in eine blaue Eishöhle', 'Superjeep über schwarzen Sand', 'Heiße Quellen unter Nordlichtern'],
+    season: 'Nov–Mär', temp: '0 °C', flight: 'ca. 4 h', price: 4, map: 'Vatnajökull',
+    scene: k => {
+      let s = k.sky(['#9CC4DF', '#E2EFF6'])
+        + k.ridge([[0,200],[80,178],[150,186],[210,152],[262,172],[330,160],[400,192]], k.lin(['#FFFFFF', '#A9C4D8']))
+        + `<rect y="232" width="400" height="68" fill="#2A3037"/>`;
+      for (let i = 0; i < 9; i++){ const x = 130 + k.rnd() * 170, y = 240 + k.rnd() * 40, w = 4 + k.rnd() * 8; s += `<path d="M${k.r1(x)} ${k.r1(y)}l${k.r1(w)} ${k.r1(-w * .4)}l${k.r1(w * .6)} ${k.r1(w * .5)}z" fill="#E9F6FF" opacity=".9"/>`; }
+      s += k.at(212, 262, 1.15, k.person('#0E2236'));
+      s += `<path fill-rule="evenodd" d="M-10 -10H410V310H-10ZM118 310C110 180 150 96 214 94C282 92 316 176 300 310Z" fill="${k.rad(['#8BDDF7', '#2B8FC9', '#0B3A66', '#061F3B'], 210, 190, 300)}"/>`;
+      for (let i = 0; i < 46; i++){ const x = k.rnd() * 400, y = k.rnd() * 300; if (((x - 209) / 104) ** 2 + ((y - 230) / 145) ** 2 < 1.08) continue; const w = 10 + k.rnd() * 16; s += `<path d="M${k.r1(x)} ${k.r1(y)}q${k.r1(w / 2)} ${k.r1(-w * .4)} ${k.r1(w)} 0" stroke="#C9F2FF" stroke-width="1.4" fill="none" opacity="${k.r1(.18 + k.rnd() * .25)}"/>`; }
+      return s + `<path d="M118 310C110 180 150 96 214 94C282 92 316 176 300 310" stroke="#D8F6FF" stroke-width="3" fill="none" opacity=".55"/>`; } },
+
+  { id: 'antarktis', cat: 'kalt', name: 'Antarktis', place: 'Antarktische Halbinsel', iata: 'USH', stops: '2 Stopps', title: 'Expedition ins ewige Eis',
+    perks: ['Expeditionsschiff mit Balkonsuite', 'Zodiac-Fahrten zu Pinguinkolonien', 'Ab Ushuaia durch die Drake-Passage'],
+    season: 'Nov–Mär', temp: '0 °C', flight: 'ca. 20 h', price: 5, map: 'Antarctic Peninsula',
+    scene: k => k.sky(['#A9A6DC', '#EDC3D0', '#FBE2D2'])
+      + k.sun(312, 122, 13, '#FFF7EA', '#FFD6BF')
+      + k.ridge([[0,176],[40,160],[70,166],[110,138],[140,150],[170,128],[205,152],[240,146],[280,166],[330,160],[400,172]], k.lin(['#FFFFFF', '#C4CFE6']))
+      + k.ridge([[0,184],[100,176],[200,180],[300,177],[400,182]], '#B3BED8')
+      + k.sea(184, ['#45608F', '#2D4672', '#21375C'], '#F8D9DE')
+      + k.reflect(312, 184, '#FFE3D3', 10)
+      + k.at(238, 190, .36, k.iceberg(90, 46, '#F4FAFF', '#B8CDE6'))
+      + k.at(340, 200, .62, k.iceberg(90, 46, '#F4FAFF', '#B8CDE6'))
+      + k.at(76, 210, 1, k.iceberg(96, 50, '#F4FAFF', '#B8CDE6'))
+      + k.at(196, 226, .95, k.ship())
+      + `<path d="M-10 310V262Q60 250 140 258Q196 262 236 310Z" fill="#F4F9FF"/><path d="M-10 268Q60 256 140 264Q190 268 222 296" stroke="#C9D8EC" stroke-width="2" fill="none"/>`
+      + [[36,276,1.15],[56,280,1.3],[80,272,1.05],[104,278,1.25],[128,286,1.4]].map(([x, y, s]) => k.at(x, y, s, k.penguin())).join('') },
+
+  { id: 'spitzbergen', cat: 'kalt', name: 'Spitzbergen', place: 'Svalbard · Norwegen', iata: 'LYR', stops: '1 Stopp', title: 'Polarlicht am Mittag',
+    perks: ['Polarnacht: Nordlicht auch tagsüber', 'Hundeschlitten durch arktische Täler', 'Lodge an einem einsamen Fjord'],
+    season: 'Nov–Mär', temp: '−14 °C', flight: 'ca. 6 h', price: 4, map: 'Longyearbyen',
+    scene: k => {
+      let s = k.sky(['#06172E', '#0F3557', '#2A5F80']) + k.stars(90, 160) + k.aurora(['#56FFAD', '#3AE0E4', '#56FFAD'], 48, .85)
+        + k.ridge([[0,196],[30,170],[90,166],[110,176],[150,150],[230,148],[250,164],[290,160],[320,140],[380,142],[400,160]], k.lin(['#DDE9F4', '#6F8FAE']))
+        + k.ridge([[0,216],[120,208],[220,214],[320,206],[400,212]], '#9BB3C9')
+        + k.hills(236, 3, .02, 1, '#DCE8F2');
+      ['#C8423A', '#E9B44C', '#3E7CB1', '#6BA368', '#D97B3A', '#B5507A', '#3E7CB1'].forEach((c, i) => { s += k.at(72 + i * 42 + k.rnd() * 6, 252 - (i % 2) * 4, 1, k.house(28, 18, c, '#1D2B3A', '#FFD27A', true)); });
+      return s + k.hills(278, 4, .025, 0, '#F0F6FB'); } },
+
+  { id: 'stmoritz', cat: 'kalt', name: 'St. Moritz', place: 'Engadin · Schweiz', iata: 'SMV', stops: 'Privatjet', title: 'Champagnerklima im Engadin',
+    perks: ['Grandhotel mit Blick auf den See', 'Pferderennen auf dem gefrorenen See', 'Weiterreise im Glacier Express'],
+    season: 'Dez–Mär', temp: '−5 °C', flight: 'ca. 1 h', price: 5, map: 'St. Moritz',
+    scene: k => {
+      let s = k.sky(['#2C7AD6', '#79B6EE', '#D8EDFA']) + k.sun(328, 52, 13, '#FFFFFF', '#FFF7CF')
+        + k.ridge([[0,170],[40,140],[80,118],[110,96],[140,120],[180,104],[220,70],[250,96],[290,110],[330,88],[370,120],[400,130]], k.lin(['#FFFFFF', '#BCD0E4']))
+        + k.ridge([[0,200],[60,174],[120,188],[180,162],[240,182],[300,168],[360,188],[400,180]], k.lin(['#E6EFF7', '#5A7893']));
+      for (let i = 0; i < 34; i++) s += k.at(i * 12 + k.rnd() * 6, 222, 1, k.pine(12 + k.rnd() * 10, '#1F3B3A'));
+      s += `<rect y="222" width="400" height="46" fill="${k.lin(['#DCEBF7', '#BBD3E8'])}"/>`;
+      s += `<path d="M160 256Q270 248 396 256" stroke="#FFFFFF" stroke-width="2" stroke-dasharray="5 5" fill="none"/>`;
+      for (let i = 0; i < 6; i++){ const x = 196 + i * 26; s += k.at(x, 242, .42, k.tent('#FFFFFF', '#F1D9A8')) + `<path d="M${x} 229V222" stroke="#5A4A44" stroke-width=".8"/><path d="M${x} 222h5v3h-5z" fill="${i % 2 ? '#D33A2C' : '#1F5FAE'}"/>`; }
+      s += `<path d="M0 222H172Q150 240 120 246H0Z" fill="#F2F7FB"/>`;
+      s += k.at(92, 238, 1, k.grandhotel('#EFE3CC', '#4E3F3A', '#FFD98A'));
+      return s + k.hills(268, 5, .018, 1, '#F7FBFE') + k.at(14, 306, 1, k.pine(110, '#1A3332', '#FFFFFF')) + k.at(388, 306, 1, k.pine(90, '#1A3332', '#FFFFFF')); } },
+
+  { id: 'santorini', cat: 'mediterran', name: 'Santorini', place: 'Oia · Griechenland', iata: 'JTR', stops: 'Direkt', title: 'Höhlensuite über der Caldera',
+    perks: ['Infinity-Pool an der Kraterkante', 'Sonnenuntergang über der Caldera', 'Katamaran zu den heißen Quellen'],
+    season: 'Mai–Okt', temp: '27 °C', flight: 'ca. 3 h', price: 4, map: 'Oia, Santorini',
+    scene: k => {
+      let s = k.sky(['#33357E', '#9B4F84', '#EE8F6A', '#F9C985'])
+        + k.sun(262, 172, 22, '#FFE3A8', '#FFB06A')
+        + k.sea(178, ['#3D3F80', '#2B2F68', '#1E2452'], '#FFC48A')
+        + k.reflect(262, 178, '#FFC48A', 14)
+        + `<path d="M300 179Q340 166 400 170V179Z" fill="#4A3363"/>`
+        + `<path d="M-6 306V128Q30 116 70 124Q108 130 132 158Q150 188 162 306Z" fill="${k.lin(['#7A4255', '#3B1F33'])}"/>`
+        + `<path d="M0 182Q60 174 124 190M0 218Q70 208 142 230M0 254Q76 244 152 264" stroke="#2C1626" stroke-width="2" fill="none" opacity=".45"/>`;
+      [[12,128,22,18,1],[36,124,18,16,0],[58,126,22,18,1],[82,130,18,14,0],[104,140,16,12,0],[22,144,22,14,0],[48,150,20,14,0],[72,154,18,12,1],[98,160,14,10,0],[34,166,16,10,0],[60,172,14,10,0]].forEach(([x, y, w, h, d]) => { s += k.at(x, y, 1, k.cube(w, h, '#F7F0F1', '#E4C3CB')); if (d) s += k.at(x, y - h, 1, k.dome(w * .36, '#2D58C8')); });
+      s += `<rect x="11" y="127" width="22" height="3" fill="#4FD0E0"/>`;
+      return s + k.at(304, 232, .85, k.sailboat('#F7F1EE', '#FDEBD9')); } },
+
+  { id: 'amalfi', cat: 'mediterran', name: 'Amalfiküste', place: 'Positano · Italien', iata: 'NAP', stops: 'Direkt', title: 'Im Holzboot nach Capri',
+    perks: ['Villa mit Terrasse über dem Meer', 'Holz-Motorboot zur Blauen Grotte', 'Zitronenhaine und Limoncello'],
+    season: 'Mai–Sep', temp: '28 °C', flight: 'ca. 2 h', price: 4, map: 'Positano',
+    scene: k => {
+      let s = k.sky(['#6CBCEA', '#B9E1F4', '#F6EFDC']) + k.cloud(160, 56, .7)
+        + `<path d="M14 177Q50 156 92 164Q124 158 146 177Z" fill="#8597AE" opacity=".85"/>`
+        + `<path d="M40 177L44 162L50 160L54 177ZM60 177L63 167L69 165L71 177Z" fill="#6E7F94"/>`
+        + k.sea(176, ['#1C79B0', '#1A6CA2', '#125A8B'], '#E9F7FF')
+        + `<path d="M406 306V58Q368 64 344 92Q318 120 300 150Q284 176 262 196Q246 212 236 306Z" fill="${k.lin(['#7C9A58', '#4A6136'])}"/>`;
+      [[380,82,26,22,'#F2C14E'],[390,150,20,20,'#FFFFFF'],[356,96,24,20,'#F7E6C8'],[388,112,22,22,'#E98D74'],[338,118,26,20,'#FFFFFF'],[366,134,24,22,'#F4B7A6'],[316,142,22,18,'#F2D17E'],[346,158,26,22,'#F7E6C8'],[370,172,24,24,'#F2C14E'],[296,166,24,18,'#E98D74'],[324,178,22,20,'#FFFFFF'],[280,190,22,18,'#F2C14E'],[306,200,26,20,'#F4B7A6']].forEach(([x, y, w, h, c]) => {
+        s += k.at(x, y, 1, `<rect x="${-w / 2}" y="${-h}" width="${w}" height="${h}" fill="${c}"/><rect x="${-w / 2}" y="${-h - 2}" width="${w}" height="2.4" fill="#D9CBB0"/><rect x="${k.r1(-w * .3)}" y="${k.r1(-h * .65)}" width="${k.r1(w * .18)}" height="${k.r1(h * .3)}" fill="#3C6E5A"/><rect x="${k.r1(w * .1)}" y="${k.r1(-h * .65)}" width="${k.r1(w * .18)}" height="${k.r1(h * .3)}" fill="#3C6E5A"/>`);
+      });
+      s += k.at(330, 134, 1, `<rect x="-9" y="-8" width="18" height="8" fill="#F7E6C8"/><path d="M-10 -8Q-10 -22 0 -22Q10 -22 10 -8Z" fill="${k.lin(['#F2C94C', '#3C9A62', '#2563A8'])}"/><rect x="-1.5" y="-27" width="3" height="5" fill="#F7E6C8"/>`);
+      s += k.at(170, 242, 1.5, k.riva());
+      s += `<path d="M-12 8Q40 26 96 14" stroke="#4A3A22" stroke-width="4" fill="none" stroke-linecap="round"/>`;
+      [[8,20,-20],[26,28,30],[44,24,-30],[62,30,20],[80,18,-15],[94,12,35],[16,12,40]].forEach(([x, y, a]) => { s += `<ellipse cx="${x}" cy="${y}" rx="13" ry="5" fill="#2F6B3A" transform="rotate(${a} ${x} ${y})"/>`; });
+      [[34,42],[70,42],[52,48]].forEach(([x, y]) => { s += `<path d="M${x} ${y - 9}V${y - 18}" stroke="#4A3A22" stroke-width="1.4"/><ellipse cx="${x}" cy="${y}" rx="7" ry="9" fill="#F4D03F"/><ellipse cx="${x - 2}" cy="${y - 3}" rx="2" ry="3" fill="#FFF3B0" opacity=".7"/>`; });
+      return s; } },
+
+  { id: 'cotedazur', cat: 'mediterran', name: 'Côte d’Azur', place: 'Monaco · Saint-Tropez', iata: 'NCE', stops: 'Direkt', title: 'Megayacht vor Monaco',
+    perks: ['Yacht mit Crew bis Saint-Tropez', 'Abend im Casino de Monte-Carlo', 'Grand Prix vom Sonnendeck aus'],
+    season: 'Mai–Sep', temp: '26 °C', flight: 'ca. 1,5 h', price: 5, map: 'Port Hercule, Monaco',
+    scene: k => {
+      let s = k.sky(['#1D2A57', '#5A4C85', '#D68A86', '#F3BE93']) + k.stars(30, 70) + k.hills(144, 18, .011, 1.2, '#3C3557');
+      const b = []; for (let i = 0; i < 80; i++){ const x = k.rnd() * 410 - 5; b.push([x, 168 + Math.sin(x * .012) * 10 + k.rnd() * 26]); }
+      b.sort((p, q) => p[1] - q[1]).forEach(([x, y], i) => {
+        const w = 8 + k.rnd() * 10, h = 10 + k.rnd() * 24;
+        s += `<rect x="${k.r1(x)}" y="${k.r1(y - h)}" width="${k.r1(w)}" height="${k.r1(h)}" fill="${['#4B4069', '#594B79', '#3F3760', '#665683'][i % 4]}"/>`;
+        for (let j = 0; j < 3; j++) if (k.rnd() < .6) s += `<rect x="${k.r1(x + 2 + k.rnd() * (w - 4))}" y="${k.r1(y - h + 3 + k.rnd() * (h - 6))}" width="1.6" height="1.6" fill="#FFD58A"/>`;
+      });
+      s += k.sea(198, ['#2B3768', '#1E2850', '#141B38'], '#F3BE93');
+      for (let i = 0; i < 22; i++) s += `<rect x="${k.r1(k.rnd() * 400)}" y="200" width="1.6" height="${k.r1(8 + k.rnd() * 30)}" fill="#FFD58A" opacity="${k.r1(.2 + k.rnd() * .25)}"/>`;
+      return s + k.at(88, 214, .42, k.yacht('#F4F1EC', '#1A2342', '#FFD58A')) + k.at(334, 210, .32, k.yacht('#F4F1EC', '#1A2342', '#FFD58A')) + k.at(206, 256, 1.85, k.yacht('#F7F5F0', '#1A2342', '#FFD58A')) + k.at(374, 306, 1, k.palm(172, -30, '#12182F')); } },
+
+  { id: 'dubrovnik', cat: 'mediterran', name: 'Dubrovnik', place: 'Dalmatien · Kroatien', iata: 'DBV', stops: 'Direkt', title: 'Segeln durch die Elaphiten',
+    perks: ['Eigene Segelyacht mit Skipper', 'Sonnenuntergang auf der Stadtmauer', 'Austern frisch aus Ston'],
+    season: 'Mai–Okt', temp: '28 °C', flight: 'ca. 2 h', price: 3, map: 'Dubrovnik',
+    scene: k => {
+      let s = k.sky(['#3F8FD3', '#99CDEF', '#EEF5EA']) + k.cloud(268, 50, .8)
+        + `<path d="M248 174Q290 150 350 158Q386 162 404 172V174Z" fill="#4F7B4C"/>`
+        + k.sea(172, ['#185E95', '#1F7BB0', '#2E98C2']);
+      for (let i = 0; i < 20; i++){ const x = 2 + i * 9 + k.rnd() * 4, y = 166 - k.rnd() * 18; s += `<rect x="${k.r1(x - 8)}" y="${k.r1(y)}" width="16" height="20" fill="#EAD9B6"/><path d="M${k.r1(x - 9)} ${k.r1(y)}L${k.r1(x)} ${k.r1(y - 8)}L${k.r1(x + 9)} ${k.r1(y)}Z" fill="${['#C8562F', '#B44A28', '#D66A3C'][i % 3]}"/>`; }
+      s += `<rect x="120" y="118" width="10" height="56" fill="#E5D3AC"/><path d="M118 118L125 104L132 118Z" fill="#7A8B6A"/><rect x="123" y="126" width="4" height="7" fill="#5B4A36"/>`;
+      s += `<path d="M-6 306V178H186L204 306Z" fill="${k.lin(['#E7D5AE', '#C2AC80'])}"/>`;
+      for (let x = -4; x < 186; x += 8) s += `<rect x="${x}" y="173" width="4.5" height="5" fill="#E7D5AE"/>`;
+      s += `<path d="M26 182V132H62V182Z" fill="${k.lin(['#EAD9B4', '#CDB78C'], 1, 0)}"/>`;
+      for (let x = 26; x < 62; x += 7) s += `<rect x="${x}" y="127" width="4" height="5" fill="#EAD9B4"/>`;
+      s += `<path d="M-6 306V236Q60 224 120 238Q176 250 214 306Z" fill="#A8946E"/>`;
+      return s + k.at(274, 222, 1.5, k.sailboat('#FFFFFF', '#FFFFFF')) + k.at(342, 202, .8, k.sailboat('#FFFFFF', '#F3F6F8')); } },
+
+  { id: 'sardinien', cat: 'mediterran', name: 'Costa Smeralda', place: 'Sardinien · Italien', iata: 'OLB', stops: 'Direkt', title: 'Türkisblau vor Porto Cervo',
+    perks: ['Yachttag im La-Maddalena-Archipel', 'Villa zwischen Granit und Macchia', 'Aperitivo an der Piazzetta'],
+    season: 'Jun–Sep', temp: '29 °C', flight: 'ca. 2 h', price: 5, map: 'Porto Cervo',
+    scene: k => k.sky(['#45AEE6', '#9FD9F3', '#EEF8FA']) + k.cloud(300, 50, .7)
+      + `<path d="M150 167Q200 140 262 160Q302 150 344 167Z" fill="#6F8D5E"/><path d="M-4 167Q40 154 92 167Z" fill="#7E9B6B" opacity=".8"/>`
+      + k.sea(166, ['#0F6A9A', '#1AA2C3', '#4DD3D0', '#B5F0E2'])
+      + k.at(170, 186, .42, k.sailboat('#FFFFFF', '#FFFFFF'))
+      + k.at(252, 196, .55, k.yacht('#FFFFFF', '#1C3D5A'))
+      + k.at(318, 222, .95, k.yacht('#FFFFFF', '#1C3D5A'))
+      + k.at(46, 306, 1, k.boulder(92, 116, '#C9B3A3', '#9C8474'))
+      + `<g fill="#5E7E46"><circle cx="8" cy="198" r="13"/><circle cx="28" cy="192" r="11"/><circle cx="48" cy="194" r="9"/><circle cx="378" cy="226" r="11"/><circle cx="398" cy="222" r="12"/></g>`
+      + k.at(132, 306, 1, k.boulder(48, 58, '#BFA898', '#937B6C'))
+      + k.at(388, 306, 1, k.boulder(70, 84, '#C4AE9E', '#97806F')) },
+
+  { id: 'bodrum', cat: 'mediterran', name: 'Bodrum', place: 'Bodrum · Türkische Ägäis', iata: 'BJV', stops: 'Direkt', title: 'Gulet-Törn in stille Buchten',
+    perks: ['Holz-Gulet mit eigener Crew', 'Ankern in Buchten ohne Straße', 'Fisch frisch vom Grill an Deck'],
+    season: 'Mai–Okt', temp: '31 °C', flight: 'ca. 3 h', price: 3, map: 'Bodrum',
+    scene: k => {
+      let s = k.sky(['#E2774A', '#F0A863', '#F8D79B']) + k.sun(118, 126, 22, '#FFF0C8', '#FFCE85') + k.hills(152, 14, .013, 1, '#A36A57');
+      for (let i = 0; i < 34; i++) s += `<rect x="${k.r1(k.rnd() * 400)}" y="${k.r1(160 + k.rnd() * 16)}" width="5" height="4" fill="#F6E9DA" opacity=".9"/>`;
+      return s + k.hills(174, 8, .02, 2.2, '#80504A') + k.at(322, 186, 1, k.castle('#5E3E3A')) + k.sea(186, ['#3C6E8F', '#2B587A', '#1E4262'], '#FFD8A0') + k.reflect(118, 186, '#FFD08A', 14) + k.at(214, 248, 1.7, k.gulet('#7B4A2A', '#F4E7D3')); } },
+];
+
+const CATS = {
+  warm:       { label: 'Warm',       sub: 'Tropen, Wüste, Savanne',      temp: '25\u00A0bis\u00A031\u00A0°C',  next: 'kalt',       hero: 'borabora' },
+  kalt:       { label: 'Kalt',       sub: 'Polarlicht, Eis, Gletscher',  temp: '−15\u00A0bis\u00A00\u00A0°C',  next: 'mediterran', hero: 'lappland' },
+  mediterran: { label: 'Mediterran', sub: 'Küsten, Inseln, Yachten',     temp: '26\u00A0bis\u00A031\u00A0°C',  next: 'alle',       hero: 'santorini' },
+  alle:       { label: 'Alle Zonen', sub: 'Warm, kalt und mediterran gemischt', temp: '−15\u00A0bis\u00A031\u00A0°C', next: null },
+};
+const ZONES = ['warm', 'kalt', 'mediterran'];
+const byId = Object.fromEntries(TRIPS.map(t => [t.id, t]));
+const byCat = c => TRIPS.filter(t => t.cat === c);
+const MIXED = (() => { const lists = ZONES.map(byCat), out = []; for (let i = 0; i < Math.max(...lists.map(l => l.length)); i++) lists.forEach(l => l[i] && out.push(l[i])); return out; })();
+const pool = c => c === 'alle' ? MIXED : byCat(c);
+
+/* ---------- state (per viewer, in this browser only) ---------- */
+const STORE = 'fernweh-swipe-v1';
+let decisions = {};
+try { const raw = JSON.parse(localStorage.getItem(STORE) || '{}'); for (const [id, v] of Object.entries(raw)) if (byId[id] && ['like', 'nope', 'super'].includes(v)) decisions[id] = v; } catch (e) { decisions = {}; }
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(decisions)); } catch (e) { /* storage unavailable: keep in memory */ } };
+const history = {};
+let cat = null;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const isLiked = id => decisions[id] === 'like' || decisions[id] === 'super';
+
+/* ---------- elements ---------- */
+const $ = id => document.getElementById(id);
+const app = $('app'), home = $('home'), deckView = $('deckView'), stage = $('stage'), deckEnd = $('deckEnd');
+const passport = $('passport'), scrim = $('scrim'), passBtn = $('passBtn'), live = $('live');
+const thumbs = {};
+const thumb = t => thumbs[t.id] || (thumbs[t.id] = sceneSVG(t, 't-' + t.id));
+const mapUrl = t => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.map);
+const PLANE = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" transform="rotate(90 12 12)" d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
+
+/* ---------- cards ---------- */
+function buildCard(t){
+  const el = document.createElement('article');
+  el.className = 'card';
+  el.dataset.id = t.id;
+  el.dataset.cat = t.cat;
+  el.setAttribute('aria-label', `${t.name}: ${t.title}`);
+  el.innerHTML = `
+    <div class="art">${sceneSVG(t, 'c-' + t.id)}
+      <span class="cat-tag">${CATS[t.cat].label}</span>
+      <span class="stamp like" aria-hidden="true">Visum erteilt</span>
+      <span class="stamp nope" aria-hidden="true">Abgelehnt</span>
+      <span class="stamp super" aria-hidden="true">Traumziel</span>
+      <div class="art-title"><span class="place">${t.place}</span><h2>${t.title}</h2></div>
+    </div>
+    <div class="ticket">
+      <div class="route">
+        <div class="ap"><small>Ab</small><b>FRA</b></div>
+        <div class="flightline">${PLANE}<span>${t.stops}</span></div>
+        <div class="ap"><small>Nach</small><b>${t.iata}</b></div>
+        <div class="price" role="img" aria-label="Preisklasse ${t.price} von 5"><small>Preis</small><span>${'€'.repeat(t.price)}<i>${'€'.repeat(5 - t.price)}</i></span></div>
+      </div>
+      <ul class="perks">${t.perks.map(p => `<li>${p}</li>`).join('')}</ul>
+      <dl class="facts">
+        <div><dt>Reisezeit</dt><dd>${t.season}</dd></div>
+        <div><dt>Tagsüber</dt><dd>${t.temp}</dd></div>
+        <div><dt>Flug</dt><dd>${t.flight}</dd></div>
+      </dl>
+    </div>`;
+  bindDrag(el);
+  return el;
+}
+
+function setStamps(el, like, nope, sup){
+  el.style.setProperty('--like', like.toFixed(2));
+  el.style.setProperty('--nope', nope.toFixed(2));
+  el.style.setProperty('--super', sup.toFixed(2));
+}
+
+function bindDrag(el){
+  let sx = 0, sy = 0, dx = 0, dy = 0, pid = null;
+  const T = () => Math.min(110, el.offsetWidth * .28);
+  el.addEventListener('pointerdown', e => {
+    if (el.dataset.depth !== '0' || el.classList.contains('leaving')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pid = e.pointerId; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+    el.setPointerCapture(pid);
+    el.classList.add('dragging');
+  });
+  el.addEventListener('pointermove', e => {
+    if (e.pointerId !== pid) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * .06}deg)`;
+    const t = T(), up = -dy > Math.abs(dx) ? Math.min(1, -dy / t) : 0;
+    setStamps(el, up ? 0 : Math.max(0, Math.min(1, dx / t)), up ? 0 : Math.max(0, Math.min(1, -dx / t)), up);
+  });
+  const end = e => {
+    if (e.pointerId !== pid) return;
+    pid = null;
+    el.classList.remove('dragging');
+    const t = T();
+    if (-dy > t && -dy > Math.abs(dx)) decide('super', { dx, dy });
+    else if (dx > t) decide('like', { dx, dy });
+    else if (dx < -t) decide('nope', { dx, dy });
+    else { el.style.transform = ''; setStamps(el, 0, 0, 0); }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+function flyOut(el, kind, opts){
+  el.classList.add('leaving');
+  el.classList.remove('dragging');
+  el.dataset.depth = 'out';
+  setStamps(el, kind === 'like' ? 1 : 0, kind === 'nope' ? 1 : 0, kind === 'super' ? 1 : 0);
+  const w = stage.offsetWidth;
+  const dx = opts.dx || 0, dy = opts.dy || 0;
+  const tx = kind === 'like' ? w * 1.5 : kind === 'nope' ? -w * 1.5 : dx;
+  const ty = kind === 'super' ? -(window.innerHeight + 200) : dy + 60;
+  const rot = kind === 'like' ? 24 : kind === 'nope' ? -24 : 0;
+  const dur = reduced.matches ? 10 : 480;
+  const delay = opts.button && !reduced.matches ? 160 : 0;
+  setTimeout(() => {
+    el.style.transition = `transform ${dur}ms cubic-bezier(.3,.6,.3,1), opacity ${dur}ms ease`;
+    el.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+    el.style.opacity = '0';
+  }, delay);
+  setTimeout(() => el.remove(), delay + dur + 60);
+}
+
+function renderStack(opts = {}){
+  const deck = pool(cat).filter(t => !decisions[t.id]);
+  const vis = deck.slice(0, 3);
+  const live = new Map();
+  stage.querySelectorAll('.card:not(.leaving)').forEach(el => live.set(el.dataset.id, el));
+  live.forEach((el, id) => { if (!vis.some(t => t.id === id)) el.remove(); });
+  vis.forEach((t, i) => {
+    let el = live.get(t.id);
+    if (!el){
+      el = buildCard(t);
+      if (opts.returning === t.id && !reduced.matches){
+        el.style.transition = 'none';
+        el.style.transform = opts.from === 'like' ? 'translate(140%, 40px) rotate(24deg)' : opts.from === 'nope' ? 'translate(-140%, 40px) rotate(-24deg)' : 'translateY(-130%)';
+      } else el.dataset.depth = '3';
+      stage.appendChild(el);
+      el.getBoundingClientRect();
+      el.style.transition = '';
+      el.style.transform = '';
+    }
+    el.dataset.depth = String(i);
+    el.style.zIndex = String(10 - i);
+    el.setAttribute('aria-hidden', i === 0 ? 'false' : 'true');
+  });
+
+  const all = pool(cat), done = all.length - deck.length;
+  $('progress').textContent = deck.length ? `${done + 1} / ${all.length}` : `${all.length} / ${all.length}`;
+  $('pips').innerHTML = all.map(t => `<span data-s="${decisions[t.id] || ''}"></span>`).join('');
+  const empty = deck.length === 0;
+  deckEnd.hidden = !empty;
+  if (empty) renderEnd(all);
+  ['btnNope', 'btnSuper', 'btnLike'].forEach(id => { $(id).disabled = empty; });
+  $('btnUndo').disabled = !(history[cat] && history[cat].length);
+}
+
+function renderEnd(all){
+  const liked = all.filter(t => isLiked(t.id)).length;
+  const nopes = all.filter(t => decisions[t.id] === 'nope').length;
+  $('endTitle').textContent = `Alle ${all.length} Reisen gesehen`;
+  $('endText').textContent = liked
+    ? `${liked} ${liked === 1 ? 'Reise steht' : 'Reisen stehen'} jetzt in deinem Reisepass.`
+    : 'Noch nichts gemerkt. Schau dir die abgelehnten Reisen ruhig noch einmal an.';
+  const nx = CATS[cat].next;
+  const endNext = $('endNext');
+  endNext.href = nx ? '#' + nx : '#start';
+  endNext.textContent = nx ? `Weiter: ${CATS[nx].label}` : 'Zur Übersicht';
+  const retry = $('endRetry');
+  retry.hidden = nopes === 0;
+  retry.textContent = `Abgelehnte nochmal zeigen (${nopes})`;
+}
+
+const VERDICT = { like: 'Visum erteilt', nope: 'abgelehnt', super: 'als Traumziel gestempelt' };
+function decide(kind, opts = {}){
+  const top = stage.querySelector('.card[data-depth="0"]:not(.leaving)');
+  if (!top) return;
+  const id = top.dataset.id;
+  decisions[id] = kind;
+  save();
+  (history[cat] = history[cat] || []).push({ id, kind });
+  flyOut(top, kind, opts);
+  renderStack();
+  renderPassport();
+  live.textContent = `${byId[id].name}: ${VERDICT[kind]}`;
+}
+
+function undo(){
+  const h = history[cat];
+  if (!h || !h.length) return;
+  const { id, kind } = h.pop();
+  delete decisions[id];
+  save();
+  renderStack({ returning: id, from: kind });
+  renderPassport();
+  live.textContent = `${byId[id].name} liegt wieder oben auf dem Stapel`;
+}
+
+/* ---------- passport ---------- */
+function renderPassport(){
+  const liked = TRIPS.filter(t => isLiked(t.id)).sort((a, b) => (decisions[b.id] === 'super') - (decisions[a.id] === 'super'));
+  $('passCount').textContent = liked.length;
+  $('passEmpty').hidden = liked.length > 0;
+  $('passStats').innerHTML = liked.length ? ZONES.map(c => `<span data-cat="${c}"><i></i>${CATS[c].label} <b>${liked.filter(t => t.cat === c).length}</b></span>`).join('') : '';
+  $('passList').innerHTML = liked.map(t => `
+    <li class="visa${decisions[t.id] === 'super' ? ' is-super' : ''}" data-cat="${t.cat}">
+      <div class="visa-art">${thumb(t)}</div>
+      <div class="visa-body">
+        <span class="visa-code">FRA → ${t.iata}</span>
+        <strong>${t.name}</strong>
+        <span class="visa-meta">${t.title} · ${t.season}</span>
+        <span class="visa-links"><a href="${mapUrl(t)}" target="_blank" rel="noopener noreferrer">Auf der Karte</a><button type="button" data-remove="${t.id}">Entfernen</button></span>
+      </div>
+    </li>`).join('');
+}
+
+function openPassport(){ passport.classList.add('open'); scrim.hidden = false; passBtn.setAttribute('aria-expanded', 'true'); $('passClose').focus({ preventScroll: true }); }
+function closePassport(){ if (!passport.classList.contains('open')) return; passport.classList.remove('open'); scrim.hidden = true; passBtn.setAttribute('aria-expanded', 'false'); }
+
+/* ---------- home ---------- */
+function renderHome(){
+  $('zones').innerHTML = ZONES.map(c => {
+    const C = CATS[c], trips = byCat(c), left = trips.filter(t => !decisions[t.id]).length;
+    const badge = left === trips.length ? `${trips.length} Reisen` : left ? `${left} von ${trips.length} offen` : 'Alle gesehen';
+    return `<a class="zone" href="#${c}" data-cat="${c}">
+      <div class="zone-art">${sceneSVG(byId[C.hero], 'z-' + C.hero)}<span class="zone-count">${badge}</span></div>
+      <div class="zone-body">
+        <h2>${C.label}</h2>
+        <p class="zone-sub">${C.sub} · ${C.temp}</p>
+        <p class="zone-list">${trips.map(t => t.name).join(' · ')}</p>
+        <span class="zone-go">Stapel öffnen →</span>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+/* ---------- routing: #warm, #kalt, #mediterran, #alle ---------- */
+function route(){
+  const h = location.hash.slice(1).toLowerCase();
+  const next = CATS[h] ? h : null;
+  const changed = next !== cat;
+  cat = next;
+  app.dataset.cat = next || '';
+  document.querySelectorAll('.tabs a').forEach(a => { if (a.dataset.cat === next) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  home.hidden = !!next;
+  deckView.hidden = !next;
+  closePassport();
+  if (next){
+    if (changed) stage.querySelectorAll('.card').forEach(el => el.remove());
+    $('deckTitle').textContent = CATS[next].label;
+    $('deckSub').textContent = `${CATS[next].sub} · ${CATS[next].temp}`;
+    renderStack();
+  } else {
+    renderHome();
+  }
+  if (changed) window.scrollTo(0, 0);
+}
+
+/* ---------- wiring ---------- */
+$('btnLike').addEventListener('click', () => decide('like', { button: true }));
+$('btnNope').addEventListener('click', () => decide('nope', { button: true }));
+$('btnSuper').addEventListener('click', () => decide('super', { button: true }));
+$('btnUndo').addEventListener('click', undo);
+$('endRetry').addEventListener('click', () => {
+  pool(cat).forEach(t => { if (decisions[t.id] === 'nope') delete decisions[t.id]; });
+  history[cat] = [];
+  save(); renderStack();
+});
+$('endPass').addEventListener('click', openPassport);
+passBtn.addEventListener('click', () => passport.classList.contains('open') ? closePassport() : openPassport());
+$('passClose').addEventListener('click', closePassport);
+scrim.addEventListener('click', closePassport);
+$('passList').addEventListener('click', e => {
+  const b = e.target.closest('[data-remove]');
+  if (!b) return;
+  const id = b.dataset.remove;
+  decisions[id] = 'nope';
+  save(); renderPassport();
+  if (cat) renderStack(); else renderHome();
+  live.textContent = `${byId[id].name} aus dem Reisepass entfernt`;
+});
+let armTimer = null;
+$('resetAll').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!b.classList.contains('armed')){
+    b.classList.add('armed'); b.textContent = 'Wirklich alles löschen? Nochmal tippen';
+    clearTimeout(armTimer);
+    armTimer = setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Alles zurücksetzen'; }, 4000);
+    return;
+  }
+  clearTimeout(armTimer);
+  b.classList.remove('armed'); b.textContent = 'Alles zurücksetzen';
+  decisions = {}; Object.keys(history).forEach(k => delete history[k]);
+  save(); renderPassport();
+  if (cat){ stage.querySelectorAll('.card').forEach(el => el.remove()); renderStack(); } else renderHome();
+  live.textContent = 'Reisepass geleert';
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePassport(); return; }
+  if (!cat || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.target.closest && e.target.closest('input, textarea, select')) return;
+  if (e.key === 'ArrowRight'){ e.preventDefault(); decide('like', { button: true }); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); decide('nope', { button: true }); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); decide('super', { button: true }); }
+  else if (e.key === 'z' || e.key === 'Z' || e.key === 'Backspace'){ e.preventDefault(); undo(); }
+});
+window.addEventListener('hashchange', route);
+
+renderPassport();
+route();
+})();
+</script>
+</body>
+</html>
