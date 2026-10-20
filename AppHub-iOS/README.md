@@ -17,6 +17,18 @@ Eine native SwiftUI-App, entstanden aus dem Design-Entwurf „App-Hub“. Der Hu
 
 Alle Änderungen sieht man live im Bildschirm „Design“ (Pinsel-Symbol oben rechts).
 
+## Vorschau
+
+Aufgenommen im iOS-Simulator mit Beispieldaten (werden bei jedem Build automatisch aktualisiert):
+
+| Hub | Kalender | Spotify | Gmail |
+|---|---|---|---|
+| ![Hub](Vorschau/hub.jpg) | ![Kalender](Vorschau/calendar.jpg) | ![Spotify](Vorschau/spotify.jpg) | ![Gmail](Vorschau/gmail.jpg) |
+
+| Design & Hintergrund | Konnektoren einrichten | Verbinden |
+|---|---|---|
+| ![Design](Vorschau/appearance.jpg) | ![Einrichtung](Vorschau/setup.jpg) | ![Verbinden](Vorschau/connect.jpg) |
+
 ## Installieren
 
 ### Mit einem Mac (empfohlen)
