@@ -1,4 +1,4 @@
-name: iOS-App bauen
+name: Orbit (iOS-App) bauen
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: App-Hub bauen
+    name: Orbit bauen
     runs-on: macos-15
     timeout-minutes: 45
     permissions:
@@ -58,10 +58,10 @@ jobs:
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
           xcrun simctl install "$UDID" build/Debug-iphonesimulator/AppHub.app
           mkdir -p screenshots
-          for screen in hub calendar gmail spotify appearance setup connect; do
+          for screen in welcome hub flows flowEditor activity discord calendar spotify gmail appearance settings setup connect; do
             xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
             xcrun simctl launch "$UDID" "$BUNDLE_ID" -AppHubDemo YES -AppHubScreen "$screen"
-            sleep 6
+            sleep 7
             xcrun simctl io "$UDID" screenshot "screenshots/$screen.png"
           done
 
