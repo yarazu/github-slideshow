@@ -76,13 +76,14 @@ jobs:
         if: github.event_name == 'push' && hashFiles('AppHub-iOS/screenshots/*.png') != ''
         continue-on-error: true
         run: |
-          mkdir -p Screenshots
+          mkdir -p Vorschau
           for f in screenshots/*.png; do
-            sips -s format jpeg -s formatOptions 80 -Z 1200 "$f" --out "Screenshots/$(basename "${f%.png}").jpg" >/dev/null
+            sips -s format jpeg -s formatOptions 80 -Z 1200 "$f" --out "Vorschau/$(basename "${f%.png}").jpg"
           done
+          ls -la Vorschau
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Screenshots
+          git add -f Vorschau
           if ! git diff --cached --quiet; then
             git commit -m "Update app screenshots [skip ci]"
             git push origin HEAD:"$GITHUB_REF_NAME"

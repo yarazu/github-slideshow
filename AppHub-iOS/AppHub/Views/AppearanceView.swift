@@ -10,6 +10,7 @@ struct AppearanceView: View {
 
     var body: some View {
         @Bindable var appearance = appearance
+        let hasPhoto = appearance.photo != nil
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 preview
@@ -23,7 +24,7 @@ struct AppearanceView: View {
                             } else {
                                 Image(systemName: "photo.on.rectangle")
                             }
-                            Text(appearance.photo == nil ? "Eigenes Foto wählen" : "Anderes Foto wählen")
+                            Text(hasPhoto ? "Anderes Foto wählen" : "Eigenes Foto wählen")
                         }
                         .font(.headline)
                         .foregroundStyle(.black)
