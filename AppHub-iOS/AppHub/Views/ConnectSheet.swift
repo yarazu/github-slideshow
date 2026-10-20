@@ -13,6 +13,8 @@ struct ConnectSheet: View {
     @State private var isWorking = false
     @State private var errorText: String?
     @State private var showGuide = false
+    @State private var webhookURL = ""
+    @State private var botToken = ""
     @AppStorage private var clientID: String
 
     init(connector: Connector) {
@@ -58,6 +60,19 @@ struct ConnectSheet: View {
                     .glassCard(radius: 20)
                 }
 
+                if connector == .discord {
+                    DiscordFields(webhookURL: $webhookURL, botToken: $botToken)
+                    DisclosureGroup(isExpanded: $showGuide) {
+                        SetupSteps(connector: .discord)
+                            .padding(.top, 10)
+                    } label: {
+                        Label("So legst du einen Webhook an", systemImage: "questionmark.circle")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(16)
+                    .glassCard(radius: 20)
+                }
+
                 if let errorText {
                     NoticeBanner(text: errorText)
                 }
@@ -94,9 +109,11 @@ struct ConnectSheet: View {
         case .calendar:
             "Nutzt die Kalender deines iPhones – auch Google-Kalender, die unter Einstellungen › Kalender › Accounts eingerichtet sind."
         case .gmail:
-            "Du meldest dich direkt bei Google an. Der Hub erhält nur Lesezugriff, den du jederzeit wieder entziehen kannst."
+            "Du meldest dich direkt bei Google an. Orbit erhält nur Lesezugriff, den du jederzeit wieder entziehen kannst."
         case .spotify:
             "Du meldest dich direkt bei Spotify an. Die Verbindung lässt sich jederzeit wieder trennen."
+        case .discord:
+            "Orbit postet über einen Webhook in deinen Kanal – ganz ohne Passwort. Mit einem optionalen Bot liest Orbit auch die letzten Nachrichten mit."
         }
     }
 
@@ -105,11 +122,18 @@ struct ConnectSheet: View {
         case .calendar: hub.calendar.isDenied ? "In den Einstellungen erlauben" : "Zugriff erlauben"
         case .gmail: "Mit Google anmelden"
         case .spotify: "Mit Spotify anmelden"
+        case .discord: "Mit Discord verbinden"
         }
     }
 
+    /// Fehlt noch eine Pflichtangabe (Client-ID bzw. gültige Webhook-URL)?
     private var needsClientID: Bool {
-        connector.provider != nil && clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        switch connector {
+        case .discord:
+            !DiscordService.isValidWebhookURL(webhookURL)
+        case .calendar, .gmail, .spotify:
+            connector.provider != nil && clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     private func connect() {
@@ -125,7 +149,7 @@ struct ConnectSheet: View {
                         return
                     }
                     guard await hub.calendar.connect() else {
-                        errorText = "Ohne Kalenderzugriff kann der Hub keine Termine anzeigen."
+                        errorText = "Ohne Kalenderzugriff kann Orbit keine Termine anzeigen."
                         return
                     }
                 case .gmail:
@@ -134,6 +158,11 @@ struct ConnectSheet: View {
                 case .spotify:
                     try await hub.spotify.auth.signIn(using: webAuthenticationSession)
                     await hub.spotify.refreshAll()
+                case .discord:
+                    let token = botToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                    try await hub.discord.connect(webhookURL: webhookURL, botToken: token.isEmpty ? nil : token)
+                    webhookURL = ""
+                    botToken = ""
                 }
                 hub.showToast("\(connector.name) ist jetzt verbunden")
                 dismiss()
@@ -189,5 +218,82 @@ struct ClientIDField: View {
             return "Eine Spotify-Client-ID hat 32 Zeichen."
         }
         return nil
+    }
+}
+
+/// Eingabefelder für die Discord-Webhook-URL (Pflicht) und einen optionalen Bot-Token.
+struct DiscordFields: View {
+    @Binding var webhookURL: String
+    @Binding var botToken: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Webhook-URL")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TextField("https://discord.com/api/webhooks/…", text: $webhookURL)
+                    .font(.callout.monospaced())
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.next)
+                    .lineLimit(1)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityLabel("Webhook-URL")
+                webhookStatus
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Bot-Token (optional)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                SecureField("Nur zum Mitlesen des Kanals", text: $botToken)
+                    .font(.callout.monospaced())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 48)
+                    .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityLabel("Bot-Token, optional")
+                Text(tokenHint ?? "Webhook-URL und Token bleiben verschlüsselt im Schlüsselbund deines iPhones.")
+                    .font(.caption)
+                    .foregroundStyle(tokenHint == nil ? AnyShapeStyle(HierarchicalShapeStyle.secondary) : AnyShapeStyle(Color.danger))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .glassCard(radius: 20)
+    }
+
+    @ViewBuilder
+    private var webhookStatus: some View {
+        let value = webhookURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty {
+            Text("In Discord: Server-Einstellungen › Integrationen › Webhooks › Webhook-URL kopieren.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if DiscordService.isValidWebhookURL(value) {
+            Label("Webhook-URL erkannt", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.green)
+        } else {
+            Text("Eine Webhook-URL beginnt mit „https://discord.com/api/webhooks/“ und endet mit einem langen Schlüssel.")
+                .font(.caption)
+                .foregroundStyle(Color.danger)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var tokenHint: String? {
+        let value = botToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        let token = value.lowercased().hasPrefix("bot ") ? String(value.dropFirst(4)) : value
+        return token.split(separator: ".").count == 3 ? nil : "Ein Bot-Token besteht aus drei durch Punkte getrennten Teilen."
     }
 }

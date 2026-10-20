@@ -3,26 +3,40 @@ import UIKit
 
 // MARK: - Hintergrund
 
+/// Das gewählte Bild (bzw. der Verlauf) hinter allen Bildschirmen – mit Unschärfe, Abdunklung und
+/// einem sanften Verlauf oben und unten, damit Text auf jedem Bild gut lesbar bleibt.
 struct HubBackground: View {
     @Environment(Appearance.self) private var appearance
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                if let photo = appearance.activePhoto {
-                    Image(uiImage: photo)
+                if let image = appearance.backgroundImage {
+                    Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: proxy.size.width, height: proxy.size.height)
                         .clipped()
                         .blur(radius: appearance.blur, opaque: true)
                 } else {
-                    PresetBackground(preset: appearance.preset)
+                    PresetBackground(preset: appearance.gradient ?? .aurora)
                 }
                 Color.black.opacity(appearance.dim)
+                LinearGradient(
+                    stops: [
+                        Gradient.Stop(color: Color.black.opacity(0.38), location: 0),
+                        Gradient.Stop(color: Color.black.opacity(0), location: 0.26),
+                        Gradient.Stop(color: Color.black.opacity(0), location: 0.68),
+                        Gradient.Stop(color: Color.black.opacity(0.42), location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 }
@@ -54,73 +68,162 @@ struct PresetBackground: View {
 
 // MARK: - Marken & Symbole
 
-/// Das Hub-Zeichen aus dem Entwurf: ein Knoten mit vier Satelliten.
+/// Das Orbit-Zeichen als Umriss: Planet, geneigter Ring und Satellit (z. B. für Linien oder Masken).
 struct HubGlyph: Shape {
     func path(in rect: CGRect) -> Path {
-        let unit = min(rect.width, rect.height) / 24
-        let origin = CGPoint(x: rect.midX - 12 * unit, y: rect.midY - 12 * unit)
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: origin.x + x * unit, y: origin.y + y * unit)
-        }
-        func circle(_ center: CGPoint, _ radius: CGFloat) -> CGRect {
-            CGRect(x: center.x - radius * unit, y: center.y - radius * unit, width: 2 * radius * unit, height: 2 * radius * unit)
-        }
+        let size = min(rect.width, rect.height)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let tilt = CGAffineTransform(rotationAngle: OrbitGeometry.tiltDegrees * .pi / 180)
+            .concatenating(CGAffineTransform(translationX: center.x, y: center.y))
 
         var path = Path()
-        path.addEllipse(in: circle(point(12, 12), 2.5))
-        let spokes: [(CGPoint, CGPoint)] = [
-            (point(12, 9.5), point(12, 6)),
-            (point(12, 14.5), point(12, 18)),
-            (point(9.5, 12), point(6, 12)),
-            (point(14.5, 12), point(18, 12))
-        ]
-        for (from, to) in spokes {
-            path.move(to: from)
-            path.addLine(to: to)
-        }
-        for satellite in [point(12, 4.25), point(12, 19.75), point(4.25, 12), point(19.75, 12)] {
-            path.addEllipse(in: circle(satellite, 1.75))
-        }
+        let planet = size * OrbitGeometry.planetRatio / 2
+        path.addEllipse(in: CGRect(x: center.x - planet, y: center.y - planet, width: planet * 2, height: planet * 2))
+
+        let ringWidth = size * OrbitGeometry.ringWidthRatio
+        let ringHeight = size * OrbitGeometry.ringHeightRatio
+        let ring = CGRect(x: -ringWidth / 2, y: -ringHeight / 2, width: ringWidth, height: ringHeight)
+        path.addPath(Path(ellipseIn: ring), transform: tilt)
+
+        let satellite = size * OrbitGeometry.satelliteRatio / 2
+        let position = CGPoint(x: ringWidth / 2 * OrbitGeometry.satelliteX, y: ringHeight / 2 * OrbitGeometry.satelliteY).applying(tilt)
+        path.addEllipse(in: CGRect(x: position.x - satellite, y: position.y - satellite, width: satellite * 2, height: satellite * 2))
         return path
     }
 }
 
+/// Maße des Orbit-Zeichens relativ zur Kantenlänge (gemeinsam für `HubGlyph` und `OrbitEmblem`).
+private enum OrbitGeometry {
+    static let tiltDegrees: CGFloat = 25
+    static let planetRatio: CGFloat = 0.42
+    static let ringWidthRatio: CGFloat = 0.8
+    static let ringHeightRatio: CGFloat = 0.3
+    static let satelliteRatio: CGFloat = 0.11
+    /// Lage des Satelliten auf dem Ring (cos/sin von 35°), vorne rechts unten wie im App-Icon.
+    static let satelliteX: CGFloat = 0.82
+    static let satelliteY: CGFloat = 0.57
+}
+
+/// Limetten-Planet mit geneigtem Ring und Satellit – frei stehend, ohne Kachel (z. B. groß auf dem Willkommens-Bildschirm).
+struct OrbitEmblem: View {
+    var size: CGFloat = 44
+
+    var body: some View {
+        let ringWidth = size * OrbitGeometry.ringWidthRatio
+        let ringHeight = size * OrbitGeometry.ringHeightRatio
+        let line = max(1, size * 0.034)
+        let planet = size * OrbitGeometry.planetRatio
+        let satellite = size * OrbitGeometry.satelliteRatio
+        let tilt = Angle.degrees(Double(OrbitGeometry.tiltDegrees))
+        let ringStyle = StrokeStyle(lineWidth: line, lineCap: .round)
+
+        ZStack {
+            // Hintere Hälfte des Rings liegt hinter dem Planeten.
+            Ellipse()
+                .trim(from: 0.5, to: 1)
+                .stroke(Color.white.opacity(0.9), style: ringStyle)
+                .frame(width: ringWidth, height: ringHeight)
+                .rotationEffect(tilt)
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(hex: 0xEAFBA8), Color.orbitLime, Color(hex: 0x98C41E)],
+                        center: UnitPoint(x: 0.34, y: 0.3),
+                        startRadius: 0,
+                        endRadius: planet * 0.78
+                    )
+                )
+                .frame(width: planet, height: planet)
+                .shadow(color: Color.orbitLime.opacity(0.35), radius: size * 0.06)
+
+            // Vordere Hälfte mit Satellit.
+            ZStack {
+                Ellipse()
+                    .trim(from: 0, to: 0.5)
+                    .stroke(Color.white, style: ringStyle)
+                    .frame(width: ringWidth, height: ringHeight)
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: satellite, height: satellite)
+                    .offset(x: ringWidth / 2 * OrbitGeometry.satelliteX, y: ringHeight / 2 * OrbitGeometry.satelliteY)
+            }
+            .rotationEffect(tilt)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Das Orbit-Zeichen wie im App-Icon: Limetten-Planet mit Ring und Satellit auf Indigo.
 struct HubMark: View {
     var size: CGFloat = 44
 
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.32, style: .continuous)
-            .fill(.tint)
-            .frame(width: size, height: size)
-            .overlay {
-                HubGlyph()
-                    .stroke(Color.black.opacity(0.85), style: StrokeStyle(lineWidth: size * 0.04, lineCap: .round))
-                    .padding(size * 0.2)
-            }
-            .accessibilityHidden(true)
-    }
-}
-
-struct ConnectorIcon: View {
-    let connector: Connector
-    var size: CGFloat = 52
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: size * 0.3, style: .continuous)
+        shape
             .fill(
                 LinearGradient(
-                    colors: [connector.tint.opacity(0.95), connector.tint.opacity(0.65)],
+                    colors: [Color.orbitViolet, Color.orbitIndigo, Color.orbitTeal],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
             .frame(width: size, height: size)
             .overlay {
-                Image(systemName: connector.symbol)
-                    .font(.system(size: size * 0.42, weight: .semibold))
-                    .foregroundStyle(.white)
+                RadialGradient(
+                    colors: [Color(hex: 0x9A80FF).opacity(0.75), Color.clear],
+                    center: UnitPoint(x: 0.28, y: 0.18),
+                    startRadius: 0,
+                    endRadius: size * 0.62
+                )
+            }
+            .overlay {
+                OrbitEmblem(size: size * 0.86)
+            }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(Color.white.opacity(0.18), lineWidth: max(0.5, size * 0.014))
             }
             .accessibilityHidden(true)
+    }
+}
+
+/// Marken-Kachel eines Konnektors: Logo auf der Farbe des jeweiligen App-Icons.
+struct ConnectorIcon: View {
+    let connector: Connector
+    var size: CGFloat = 52
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+        shape
+            .fill(connector.tileColor)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(connector.logoAsset)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(connector.logoColor)
+                    .padding(size * 0.22)
+            }
+            .overlay {
+                // Feiner Rand: weiße Kacheln heben sich so vom Glas ab, farbige bekommen etwas Glanz.
+                shape.strokeBorder(
+                    connector.hasLightTile ? Color.black.opacity(0.1) : Color.white.opacity(0.14),
+                    lineWidth: max(0.5, size * 0.02)
+                )
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+private extension Connector {
+    var hasLightTile: Bool {
+        switch self {
+        case .calendar, .gmail: true
+        case .spotify, .discord: false
+        }
     }
 }
 
@@ -151,7 +254,7 @@ struct CardLabel: View {
         Label {
             Text(title.uppercased())
                 .font(.caption.weight(.semibold))
-                .tracking(0.8)
+                .tracking(1)
                 .foregroundStyle(.secondary)
         } icon: {
             Image(systemName: symbol)
@@ -168,7 +271,7 @@ struct SectionHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.system(.title3, design: .rounded).weight(.semibold))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .accessibilityAddTraits(.isHeader)
             Spacer()
             if let trailing {
@@ -189,7 +292,7 @@ struct HLine: Shape {
     }
 }
 
-/// Hub ←→ Konnektor, wie im Entwurf.
+/// Orbit ←→ Konnektor, wie im Entwurf.
 struct ConnectionVisual: View {
     let connector: Connector
     let connected: Bool
@@ -212,7 +315,7 @@ struct ConnectionVisual: View {
             ConnectorIcon(connector: connector, size: size)
         }
         .accessibilityElement()
-        .accessibilityLabel(connected ? "Hub ist mit \(connector.name) verbunden" : "Hub und \(connector.name)")
+        .accessibilityLabel(connected ? "Orbit ist mit \(connector.name) verbunden" : "Orbit und \(connector.name)")
     }
 }
 
@@ -301,7 +404,7 @@ struct Artwork: View {
 struct AccentButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.system(.headline, design: .rounded))
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity, minHeight: 54)
             .background(.tint, in: Capsule())
@@ -349,7 +452,7 @@ struct DisconnectButton: View {
             .confirmationDialog("\(connector.name) trennen?", isPresented: $confirming, titleVisibility: .visible) {
                 Button("Trennen", role: .destructive, action: action)
             } message: {
-                Text("Der Hub zeigt danach keine Daten von \(connector.name) mehr an.")
+                Text("Orbit zeigt danach keine Daten von \(connector.name) mehr an.")
             }
     }
 }

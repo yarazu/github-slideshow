@@ -1,19 +1,20 @@
 import SwiftUI
 import UIKit
 
-/// Einrichtung der Konnektoren: Client-IDs und Schritt-für-Schritt-Anleitungen.
+/// Einrichtung der Konnektoren: Client-IDs, Discord-Webhook und Schritt-für-Schritt-Anleitungen.
 struct SetupView: View {
     @Environment(HubStore.self) private var hub
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                Text("Gmail und Spotify verbinden sich über deine eigenen, kostenlosen Entwickler-Zugänge. So bleiben deine Daten zwischen dir und dem Anbieter – kein fremder Server dazwischen.")
+                Text("Gmail und Spotify verbinden sich über deine eigenen, kostenlosen Entwickler-Zugänge, Discord über einen Webhook deines Servers. So bleiben deine Daten zwischen dir und dem Anbieter – kein fremder Server dazwischen.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
                 ProviderCard(connector: .gmail)
                 ProviderCard(connector: .spotify)
+                ProviderCard(connector: .discord)
 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
@@ -51,7 +52,7 @@ private struct ProviderCard: View {
                 ConnectorIcon(connector: connector, size: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(connector.name).font(.headline)
-                    Text(hub.isConnected(connector) ? "Verbunden" : "Nicht verbunden")
+                    Text(status)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -59,8 +60,8 @@ private struct ProviderCard: View {
                 if !hub.isConnected(connector) {
                     Button("Verbinden") { hub.connectSheet = connector }
                         .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 36)
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 44)
                         .background(TintShapeStyle().opacity(0.18), in: Capsule())
                 }
             }
@@ -68,9 +69,24 @@ private struct ProviderCard: View {
             if let provider = connector.provider {
                 ClientIDField(provider: provider)
             }
+            if connector == .discord && hub.discord.isConnected {
+                DiscordBotSettings()
+                    .padding(16)
+                    .glassCard(radius: 20)
+            }
         }
         .padding(18)
         .glassCard()
+    }
+
+    private var status: String {
+        guard hub.isConnected(connector) else { return "Nicht verbunden" }
+        switch connector {
+        case .discord:
+            return "Verbunden mit \(hub.discord.channelLabel)"
+        case .calendar, .gmail, .spotify:
+            return "Verbunden"
+        }
     }
 }
 
@@ -133,7 +149,17 @@ struct SetupSteps: View {
         case .calendar:
             [
                 Step(text: "Öffne die iOS-Einstellungen › Apps › Kalender › Kalender-Accounts und füge dein Google-Konto hinzu."),
-                Step(text: "Tippe im Hub auf „Kalender“ und erlaube den Zugriff.")
+                Step(text: "Tippe in Orbit auf „Kalender“ und erlaube den Zugriff.")
+            ]
+        case .discord:
+            [
+                Step(text: "Öffne in Discord die Server-Einstellungen › Integrationen › Webhooks und tippe auf „Neuer Webhook“. Dafür brauchst du die Berechtigung „Webhooks verwalten“."),
+                Step(text: "Wähle den Kanal, in den Orbit schreiben soll, und gib dem Webhook einen Namen."),
+                Step(text: "Tippe auf „Webhook-URL kopieren“ und füge sie in Orbit ein. Behandle die URL wie ein Passwort – wer sie kennt, kann in den Kanal schreiben."),
+                Step(text: "Optional, damit Orbit den Kanal mitlesen kann: Lege im Developer Portal eine Anwendung an und füge unter „Bot“ einen Bot hinzu.", link: ("Developer Portal öffnen", URL(string: "https://discord.com/developers/applications")!)),
+                Step(text: "Aktiviere beim Bot unter „Privileged Gateway Intents“ den „Message Content Intent“."),
+                Step(text: "Lade den Bot über „OAuth2 › URL Generator“ (Scope „bot“, Rechte „View Channels“ und „Read Message History“) auf deinen Server ein."),
+                Step(text: "Tippe beim Bot auf „Reset Token“, kopiere den Token und füge ihn in Orbit ein.")
             ]
         }
     }

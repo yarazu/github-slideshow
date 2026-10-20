@@ -12,6 +12,12 @@ extension Color {
     }
 
     static let danger = Color(hex: 0xFF7A6B)
+
+    /// Markenfarben von Orbit, wie im App-Icon.
+    static let orbitLime = Color(hex: 0xC6F432)
+    static let orbitViolet = Color(hex: 0x7B5CFF)
+    static let orbitIndigo = Color(hex: 0x33228A)
+    static let orbitTeal = Color(hex: 0x1D6E86)
 }
 
 extension View {
@@ -62,6 +68,11 @@ enum Fmt {
         if calendar.isDateInToday(date) { return "Heute" }
         if calendar.isDateInTomorrow(date) { return "Morgen" }
         return date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(locale))
+    }
+
+    /// Ausgeschriebenes Datum ohne Jahr, z. B. „Dienstag, 20. Oktober“.
+    static func longDate(_ date: Date = .now) -> String {
+        date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(locale))
     }
 
     static func weekdayShort(_ date: Date) -> String {
