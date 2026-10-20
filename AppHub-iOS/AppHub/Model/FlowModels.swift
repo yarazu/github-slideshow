@@ -379,7 +379,7 @@ enum FlowTemplates {
                 isEnabled: true,
                 trigger: .beforeEvent(minutes: 10),
                 steps: [
-                    FlowStep(action: .notify(title: "{termin} in 10 Minuten", body: "{termin_start}–{termin_ende} {ort}")),
+                    FlowStep(action: .notify(title: "{termin} um {termin_start}", body: "{termin_start}–{termin_ende} {ort}")),
                     FlowStep(action: .spotifyPause),
                     FlowStep(action: .discord(message: "Bin bis {termin_ende} im Meeting „{termin}“."))
                 ],

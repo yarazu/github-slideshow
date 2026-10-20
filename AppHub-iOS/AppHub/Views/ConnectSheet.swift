@@ -107,7 +107,7 @@ struct ConnectSheet: View {
     private var subtitle: String {
         switch connector {
         case .calendar:
-            "Nutzt die Kalender deines iPhones – auch Google-Kalender, die unter Einstellungen › Kalender › Accounts eingerichtet sind."
+            "Nutzt die Kalender deines iPhones – auch Google-Kalender, die unter Einstellungen › Apps › Kalender › Kalender-Accounts eingerichtet sind."
         case .gmail:
             "Du meldest dich direkt bei Google an. Orbit erhält nur Lesezugriff, den du jederzeit wieder entziehen kannst."
         case .spotify:
@@ -232,7 +232,7 @@ struct DiscordFields: View {
                 Text("Webhook-URL")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                TextField("https://discord.com/api/webhooks/…", text: $webhookURL)
+                TextField("Webhook-URL", text: $webhookURL, prompt: Text(verbatim: "https://discord.com/api/webhooks/…"))
                     .font(.callout.monospaced())
                     .keyboardType(.URL)
                     .textContentType(.URL)

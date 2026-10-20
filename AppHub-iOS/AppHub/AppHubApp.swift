@@ -56,7 +56,8 @@ struct RootView: View {
                 ActivityView()
             }
             .tabItem { Label("Aktivität", systemImage: "bell.fill") }
-            .badge(hub.activity.unseenCount)
+            // Auf dem offenen Tab keine Plakette – beim Verlassen markiert ActivityView alles als gesehen.
+            .badge(hub.selectedTab == .activity ? 0 : hub.activity.unseenCount)
             .tag(AppTab.activity)
 
             NavigationStack(path: $settingsPath) {
@@ -112,7 +113,8 @@ struct RootView: View {
             transaction.disablesAnimations = true
             withTransaction(transaction) { showWelcome = true }
         }
-        await refresh()
+        // Eigene Task: Das Vollbild-Willkommen lässt die `.task` der Tabs verschwinden und würde sie abbrechen.
+        Task { await refresh() }
     }
 
     /// Mitteilungs-Status prüfen und alle Konnektoren neu laden. Start und Aktivwerden der App fallen oft

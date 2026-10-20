@@ -135,7 +135,7 @@ struct CalendarDetailView: View {
                 hub.showToast("Kalender wurde getrennt")
                 dismiss()
             }
-            Text("Den Systemzugriff kannst du zusätzlich in den iOS-Einstellungen › App-Hub › Kalender entziehen.")
+            Text("Den Systemzugriff kannst du zusätzlich in den iOS-Einstellungen › Apps › Orbit › Kalender entziehen.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
@@ -458,7 +458,7 @@ struct SpotifyDetailView: View {
                 ConnectionVisual(connector: .spotify, connected: true)
                 Text(spotify.displayName.map { "Hallo \($0)! Gerade läuft nichts." } ?? "Gerade läuft nichts.")
                     .font(.headline)
-                Text("Starte Musik in Spotify – der Hub zeigt sie hier an und du kannst sie steuern.")
+                Text("Starte Musik in Spotify – Orbit zeigt sie hier an und du kannst sie steuern.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

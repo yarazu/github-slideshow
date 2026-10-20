@@ -189,7 +189,7 @@ private struct CopyValue: View {
                     .foregroundStyle(.tint)
             }
             .padding(.horizontal, 12)
-            .frame(minHeight: 36)
+            .frame(minHeight: 44)
             .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)

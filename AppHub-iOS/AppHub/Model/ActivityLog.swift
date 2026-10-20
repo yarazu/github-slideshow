@@ -44,15 +44,21 @@ struct ActivityEntry: Identifiable, Codable, Hashable {
 final class ActivityLog {
     private static let limit = 200
     private static let lastSeenKey = "activity.lastSeen"
+    private static let clearedAtKey = "activity.clearedAt"
 
     private(set) var entries: [ActivityEntry] = []
     private var lastSeen: Date
+    /// Zeitpunkt von „Verlauf leeren“ – ältere Mitteilungen aus der Mitteilungszentrale kommen nicht zurück.
+    @ObservationIgnored private var clearedAt: Date
+    /// Demo-Modus: nichts auf die Festplatte schreiben.
+    private(set) var isDemo = false
 
     /// Einträge seit dem letzten Öffnen des Tabs „Aktivität“.
     var unseenCount: Int { entries.filter { $0.date > lastSeen }.count }
 
     init() {
         lastSeen = UserDefaults.standard.object(forKey: Self.lastSeenKey) as? Date ?? .distantPast
+        clearedAt = UserDefaults.standard.object(forKey: Self.clearedAtKey) as? Date ?? .distantPast
         if let data = try? Data(contentsOf: Self.fileURL),
            let decoded = try? JSONDecoder().decode([ActivityEntry].self, from: data) {
             entries = decoded
@@ -61,6 +67,8 @@ final class ActivityLog {
 
     func add(_ kind: ActivityEntry.Kind, title: String, detail: String = "", flowName: String? = nil, notificationID: String? = nil, date: Date = .now) {
         if let notificationID, contains(notificationID: notificationID) { return }
+        // Zugestellte Mitteilungen von vor dem Leeren nicht wieder übernehmen.
+        if notificationID != nil && date <= clearedAt { return }
         let entry = ActivityEntry(date: date, kind: kind, title: title, detail: detail, flowName: flowName, notificationID: notificationID)
         let index = entries.firstIndex { $0.date < date } ?? entries.endIndex
         entries.insert(entry, at: index)
@@ -74,16 +82,21 @@ final class ActivityLog {
 
     func markAllSeen() {
         lastSeen = .now
+        guard !isDemo else { return }
         UserDefaults.standard.set(lastSeen, forKey: Self.lastSeenKey)
     }
 
     func clear() {
         entries = []
+        clearedAt = .now
+        if !isDemo {
+            UserDefaults.standard.set(clearedAt, forKey: Self.clearedAtKey)
+        }
         persist()
     }
 
     private func persist() {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
+        guard !isDemo, let data = try? JSONEncoder().encode(entries) else { return }
         try? data.write(to: Self.fileURL, options: .atomic)
     }
 
@@ -97,6 +110,7 @@ final class ActivityLog {
 #if DEBUG
 extension ActivityLog {
     func applyDemo() {
+        isDemo = true
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         func at(_ day: Int, _ hour: Int, _ minute: Int) -> Date {
@@ -105,7 +119,7 @@ extension ActivityLog {
         entries = [
             ActivityEntry(date: at(0, 8, 50), kind: .discord, title: "Discord: #team", detail: "Bin bis 09:30 im Meeting „Wochenplanung“.", flowName: "Meeting-Modus"),
             ActivityEntry(date: at(0, 8, 50), kind: .spotify, title: "Spotify pausiert", detail: "Fokus-Mix", flowName: "Meeting-Modus"),
-            ActivityEntry(date: at(0, 8, 50), kind: .message, title: "Wochenplanung in 10 Minuten", detail: "09:00–09:30 Raum 4.12", flowName: "Meeting-Modus"),
+            ActivityEntry(date: at(0, 8, 50), kind: .message, title: "Wochenplanung um 09:00", detail: "09:00–09:30 Raum 4.12", flowName: "Meeting-Modus"),
             ActivityEntry(date: at(0, 8, 12), kind: .mail, title: "Neue Mail von Lea Berg", detail: "Agenda für die Wochenplanung", flowName: "Mail-Wächter"),
             ActivityEntry(date: at(0, 7, 30), kind: .message, title: "Guten Morgen! Dienstag, 20. Oktober", detail: "3 Termine: 09:00 Wochenplanung, 13:00 Mittagessen mit Lea, 18:00 Laufrunde · 3 ungelesene Mails", flowName: "Morgen-Briefing"),
             ActivityEntry(date: at(-1, 17, 30), kind: .discord, title: "Discord: #team", detail: "Feierabend für heute – bis morgen!", flowName: "Feierabend"),

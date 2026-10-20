@@ -194,6 +194,12 @@ struct FlowEditorView: View {
             VStack(alignment: .leading, spacing: 18) {
                 FlowTriggerKindPicker(trigger: $draft.trigger)
                 triggerFields
+                if draft.hasActionSteps && (draft.trigger.kind == .daily || draft.trigger.kind == .beforeEvent) {
+                    FlowInfoRow(
+                        symbol: "hand.tap.fill",
+                        text: "Discord-, Spotify- und Erinnerungs-Schritte laufen, wenn du die Mitteilung gedrückt hältst und „Aktionen ausführen“ wählst."
+                    )
+                }
                 if let required = draft.trigger.kind.requiredConnector, !hub.isConnected(required) {
                     FlowConnectorHint(
                         connector: required,
@@ -511,7 +517,7 @@ struct FlowEditorView: View {
         flow.name = flow.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let isNew = flowID == nil
         // Sichern ist eine bewusste Aktion – dann darf Orbit nach Mitteilungen fragen.
-        let needsPermission = flow.isEnabled && hub.flows.notificationStatus == .notDetermined
+        let needsPermission = flow.isEnabled && FlowEngine.needsNotifications(flow) && hub.flows.notificationStatus == .notDetermined
         hub.flows.save(flow)
         hub.showToast(isNew ? "„\(flow.name)“ angelegt" : "Änderungen gesichert")
         focus = nil
@@ -1214,7 +1220,9 @@ private struct FlowTokenChip: View {
             .padding(.horizontal, 12)
             .frame(minHeight: 36)
             .background(TintShapeStyle().opacity(0.14), in: Capsule())
-            .contentShape(Capsule())
+            // Sichtbar 36 pt hoch, tippbar auf 44 pt.
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Platzhalter \(token.label) einfügen")

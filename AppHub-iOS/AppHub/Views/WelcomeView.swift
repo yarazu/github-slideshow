@@ -12,7 +12,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 34) {
+            VStack(spacing: 26) {
                 hero
                 VStack(spacing: 12) {
                     WelcomeFeatureRow(
@@ -38,7 +38,7 @@ struct WelcomeView: View {
                 .offset(y: appeared ? 0 : 18)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 48)
+            .padding(.top, 24)
             .padding(.bottom, 24)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
@@ -55,10 +55,15 @@ struct WelcomeView: View {
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 24)
-            .padding(.top, 12)
+            .padding(.top, 28)
             .padding(.bottom, 8)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
+            .background {
+                // Inhalte, die darunter scrollen, verschwinden sanft statt hinter dem Button zu stehen.
+                LinearGradient(colors: [.clear, Color.black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+            }
         }
         .background { HubBackground() }
         .onAppear {
@@ -67,13 +72,13 @@ struct WelcomeView: View {
     }
 
     private var hero: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(Color.orbitLime.opacity(0.22))
-                    .frame(width: 150, height: 150)
-                    .blur(radius: 40)
-                HubMark(size: 112)
+                    .frame(width: 130, height: 130)
+                    .blur(radius: 36)
+                HubMark(size: 92)
                     .shadow(color: Color.black.opacity(0.35), radius: 24, y: 12)
             }
             .scaleEffect(appeared ? 1 : 0.86)
@@ -81,7 +86,7 @@ struct WelcomeView: View {
 
             VStack(spacing: 8) {
                 Text("Orbit")
-                    .font(.system(size: 54, weight: .bold, design: .rounded))
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
                     .accessibilityAddTraits(.isHeader)
                 Text("Dein Alltag, verbunden.")
                     .font(.system(.title3, design: .rounded).weight(.medium))

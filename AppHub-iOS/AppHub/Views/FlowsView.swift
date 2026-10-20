@@ -544,10 +544,13 @@ private struct FlowsFlowCard: View {
             }
             return ("bell.slash", "Geplant, sobald Mitteilungen erlaubt sind")
         case .beforeEvent:
-            if hub.isConnected(.calendar) {
-                return ("calendar", "Kein passender Termin in den nächsten 7 Tagen")
+            if !hub.isConnected(.calendar) {
+                return ("calendar.badge.exclamationmark", "Kalender ist nicht verbunden")
             }
-            return ("calendar.badge.exclamationmark", "Kalender ist nicht verbunden")
+            if !hub.flows.hasNotificationPermission {
+                return ("bell.slash", "Geplant, sobald Mitteilungen erlaubt sind")
+            }
+            return ("calendar", "Kein passender Termin in den nächsten 7 Tagen")
         case .newMail:
             if hub.isConnected(.gmail) {
                 return ("arrow.clockwise", "Prüft neue Mails bei jeder Aktualisierung")
@@ -666,7 +669,7 @@ private struct FlowsTemplateCard: View {
             }
             hub.showToast("„\(flow.name)“ hinzugefügt")
             // Eine Vorlage hinzuzufügen ist eine bewusste Aktion – dann darf Orbit nach Mitteilungen fragen.
-            if flow.isEnabled && !hub.flows.hasNotificationPermission && hub.flows.notificationStatus == .notDetermined {
+            if flow.isEnabled && FlowEngine.needsNotifications(flow) && hub.flows.notificationStatus == .notDetermined {
                 _ = await hub.flows.requestNotificationPermission()
             }
             isAdding = false

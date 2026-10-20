@@ -103,7 +103,7 @@ struct HubView: View {
                     }
                 }
                 HomeQuickAction(title: "Discord öffnen", symbol: "bubble.left.and.bubble.right.fill", tint: Connector.discord.tint) {
-                    openURL.first(of: DiscordService.appURLs)
+                    openURL.first(of: hub.discord.openURLs)
                 }
             }
         }

@@ -185,6 +185,8 @@ final class DiscordService {
 
     /// Fügt nachträglich einen Bot-Token hinzu (geprüft am Kanal des Webhooks) oder entfernt ihn mit `nil`.
     func updateBotToken(_ token: String?) async throws {
+        // Demo: echte Secrets im Schlüsselbund nie anfassen.
+        if isDemo { return }
         guard let cleaned = Self.cleanToken(token) else {
             Keychain.delete(Self.botKey)
             hasBot = false
@@ -193,7 +195,6 @@ final class DiscordService {
             persistInfo()
             return
         }
-        if isDemo { return }
         guard hasWebhook, let webhook = storedWebhookURL else { throw DiscordError.notConnected }
         isLoading = true
         defer { isLoading = false }
@@ -216,10 +217,13 @@ final class DiscordService {
     }
 
     func disconnect() {
-        Keychain.delete(Self.webhookKey)
-        Keychain.delete(Self.botKey)
-        UserDefaults.standard.removeObject(forKey: Self.infoKey)
-        UserDefaults.standard.removeObject(forKey: Self.sentKey)
+        // Demo: nur die Oberfläche zurücksetzen, echte Secrets bleiben erhalten.
+        if !isDemo {
+            Keychain.delete(Self.webhookKey)
+            Keychain.delete(Self.botKey)
+            UserDefaults.standard.removeObject(forKey: Self.infoKey)
+            UserDefaults.standard.removeObject(forKey: Self.sentKey)
+        }
         isDemo = false
         hasWebhook = false
         hasBot = false

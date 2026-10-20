@@ -1,4 +1,5 @@
 import BackgroundTasks
+import Observation
 import SwiftUI
 import UIKit
 import UserNotifications
@@ -21,7 +22,7 @@ final class FlowEngine {
     nonisolated static let notificationPrefix = "flow."
 
     /// Geplante Zeit- und Termin-Mitteilungen; nur diese werden beim Neuplanen ersetzt.
-    private static let planPrefix = "flow.plan."
+    nonisolated static let planPrefix = "flow.plan."
     private static let seenMailKey = "flows.seenMailIDs"
     private static let maxScheduled = 60
 
@@ -35,6 +36,9 @@ final class FlowEngine {
     @ObservationIgnored private var rescheduleTask: Task<Void, Never>?
     @ObservationIgnored private var statusKnown = false
     @ObservationIgnored private var didUpdateShortcuts = false
+    /// Neuplanen, wenn sich die Termine ändern (Kalender-App, Termin-Editor, sichtbare Kalender, Trennen).
+    @ObservationIgnored private var calendarTask: Task<Void, Never>?
+    @ObservationIgnored private var calendarSignature: [String] = []
     /// Die Datei existiert, war aber nicht lesbar (z. B. vor dem ersten Entsperren) – dann nicht überschreiben.
     @ObservationIgnored private var isReadOnly = false
 
@@ -51,6 +55,40 @@ final class FlowEngine {
     func attach(to hub: HubStore) {
         self.hub = hub
         load()
+        calendarSignature = Self.signature(of: hub.calendar.events)
+        observeCalendar()
+    }
+
+    /// Beobachtet `hub.calendar.events` und plant „Vor Terminen“-Mitteilungen neu, sobald sich Termine ändern.
+    private func observeCalendar() {
+        withObservationTracking {
+            _ = hub?.calendar.events
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.calendarDidChange()
+            }
+        }
+    }
+
+    private func calendarDidChange() {
+        observeCalendar()
+        guard let hub else { return }
+        let signature = Self.signature(of: hub.calendar.events)
+        guard signature != calendarSignature else { return }
+        calendarSignature = signature
+        // Kurz warten, damit mehrere Änderungen hintereinander nur einmal neu planen.
+        calendarTask?.cancel()
+        calendarTask = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            await self.reschedule()
+        }
+    }
+
+    private static func signature(of events: [CalendarEvent]) -> [String] {
+        events.map { event in
+            "\(event.id)|\(event.start.timeIntervalSince1970)|\(event.end.timeIntervalSince1970)|\(event.isAllDay)|\(event.title)|\(event.location ?? "")"
+        }
     }
 
     private func load() {
@@ -159,9 +197,22 @@ final class FlowEngine {
         if let context {
             resolved = context
         } else {
-            resolved = makeContext()
+            resolved = manualContext(for: flow)
         }
         return await execute(flow, context: resolved, includeMessages: includeMessages, logSummary: true)
+    }
+
+    /// Kontext für einen Lauf von Hand (Ausführen, Testen, Siri): Termin-Flows nutzen den nächsten Termin,
+    /// Mail-Flows die neueste Mail – genau wie die Vorschau im Editor.
+    private func manualContext(for flow: Flow) -> FlowContext {
+        switch flow.trigger {
+        case .beforeEvent:
+            return makeContext(event: hub?.calendar.events.first(where: { !$0.isAllDay && $0.end > .now }))
+        case .newMail:
+            return makeContext(mail: hub?.gmail.messages.first)
+        case .manual, .daily:
+            return makeContext()
+        }
     }
 
     @discardableResult
@@ -252,8 +303,13 @@ final class FlowEngine {
             }
 
         case .spotifyPause:
+            // Aktuellen Stand holen – nach einem Kaltstart (Siri, Mitteilungs-Button) ist noch nichts geladen.
+            if !isDemo && !hub.spotify.isDemo {
+                await hub.spotify.refreshPlayback()
+            }
             let track = hub.spotify.playback?.item?.name ?? ""
-            if hub.spotify.playback != nil && !hub.spotify.isPlaying {
+            // Ohne laufende Wiedergabe (auch ohne aktives Gerät) gibt es nichts zu pausieren.
+            if !hub.spotify.isPlaying {
                 hub.activity.add(.spotify, title: "Spotify war bereits pausiert", detail: track, flowName: flow.name)
                 return true
             }
@@ -496,6 +552,10 @@ final class FlowEngine {
             let text = Self.texts(title: context.render(message.title), body: context.render(message.body), fallback: flow.name)
             content.title = text.title
             content.body = text.body
+            if flow.hasActionSteps {
+                // Sonst erfährt niemand, dass Discord- und Spotify-Schritte über „Aktionen ausführen“ laufen.
+                content.subtitle = "Gedrückt halten: \(Self.actionTitles(for: flow))"
+            }
         } else {
             content.title = flow.name
             content.body = Self.actionHint(for: flow)
@@ -672,7 +732,8 @@ final class FlowEngine {
         return mail.sender.localizedCaseInsensitiveContains(filter) || mail.senderAddress.localizedCaseInsensitiveContains(filter)
     }
 
-    private static func needsNotifications(_ flow: Flow) -> Bool {
+    /// Braucht der Flow Mitteilungen (geplanter Auslöser, Nachricht oder Erinnerung)?
+    static func needsNotifications(_ flow: Flow) -> Bool {
         if flow.trigger.kind != .manual { return true }
         return flow.steps.contains { step in
             if case .notify = step.action { return true }
@@ -685,6 +746,15 @@ final class FlowEngine {
         let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
         return (cleanTitle.isEmpty ? fallback : cleanTitle, cleanBody)
+    }
+
+    /// Die Titel aller Schritte außer Nachrichten, z. B. „Spotify pausieren, Discord-Nachricht“.
+    private static func actionTitles(for flow: Flow) -> String {
+        flow.steps.compactMap { step -> String? in
+            if case .notify = step.action { return nil }
+            return step.action.title
+        }
+        .joined(separator: ", ")
     }
 
     private static func actionHint(for flow: Flow) -> String {
@@ -832,7 +902,12 @@ final class OrbitAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     ) {
         if let message = DeliveredFlowMessage(notification) {
             Task { @MainActor in
-                HubStore.shared.flows.record(message)
+                let flows = HubStore.shared.flows
+                flows.record(message)
+                // Eine geplante Mitteilung ist fällig geworden – „Nächste Ausführung“ weiterschieben.
+                if message.identifier.hasPrefix(FlowEngine.planPrefix) {
+                    await flows.reschedule()
+                }
             }
         }
         completionHandler([.banner, .list, .sound])

@@ -72,7 +72,7 @@ struct DiscordDetailView: View {
     // MARK: Composer
 
     private var canSend: Bool {
-        !isSending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !isSending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && draft.count <= 2000
     }
 
     private func composer(_ discord: DiscordService) -> some View {

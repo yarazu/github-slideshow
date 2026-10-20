@@ -71,13 +71,16 @@ final class GmailService {
     }
 
     func disconnect() {
-        if let token = auth.token?.refreshToken ?? auth.token?.accessToken,
-           let url = URL(string: "https://oauth2.googleapis.com/revoke?token=\(FormEncoding.escape(token))") {
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            URLSession.shared.dataTask(with: request).resume()
+        // Demo: das echte Google-Token weder widerrufen noch löschen.
+        if !isDemo {
+            if let token = auth.token?.refreshToken ?? auth.token?.accessToken,
+               let url = URL(string: "https://oauth2.googleapis.com/revoke?token=\(FormEncoding.escape(token))") {
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                URLSession.shared.dataTask(with: request).resume()
+            }
+            auth.signOut()
         }
-        auth.signOut()
         email = nil
         unreadCount = nil
         messages = []

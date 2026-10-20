@@ -189,7 +189,10 @@ final class SpotifyService {
     }
 
     func disconnect() {
-        auth.signOut()
+        // Demo: das echte Spotify-Token bleibt im Schlüsselbund.
+        if !isDemo {
+            auth.signOut()
+        }
         playback = nil
         recent = []
         playlists = []
