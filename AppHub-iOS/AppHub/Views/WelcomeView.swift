@@ -6,6 +6,10 @@ struct WelcomeView: View {
 
     @State private var appeared = false
 
+    init(onFinish: @escaping () -> Void) {
+        self.onFinish = onFinish
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 34) {

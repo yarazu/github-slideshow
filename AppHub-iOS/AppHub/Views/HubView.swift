@@ -1013,6 +1013,10 @@ struct PlayerControls: View {
     @Environment(HubStore.self) private var hub
     var compact = false
 
+    init(compact: Bool = false) {
+        self.compact = compact
+    }
+
     var body: some View {
         let spotify = hub.spotify
         HStack(spacing: compact ? 28 : 40) {

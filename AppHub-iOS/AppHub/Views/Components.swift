@@ -446,6 +446,11 @@ struct DisconnectButton: View {
     let action: () -> Void
     @State private var confirming = false
 
+    init(connector: Connector, action: @escaping () -> Void) {
+        self.connector = connector
+        self.action = action
+    }
+
     var body: some View {
         Button("Verbindung trennen") { confirming = true }
             .buttonStyle(GlassButtonStyle(foreground: .danger))

@@ -296,7 +296,7 @@ private struct AppearanceSwatch<Content: View>: View {
                     }
                 Text(title)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(isSelected ? .primary : .secondary)
+                    .foregroundStyle(isSelected ? HierarchicalShapeStyle.primary : HierarchicalShapeStyle.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

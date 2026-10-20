@@ -32,6 +32,7 @@ struct RootView: View {
     @State private var settingsPath: [Route] = []
     @State private var showWelcome = false
     @State private var didStart = false
+    @State private var lastRefresh = Date.distantPast
 
     var body: some View {
         @Bindable var hub = hub
@@ -84,10 +85,7 @@ struct RootView: View {
         .task { await start() }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active, didStart else { return }
-            Task {
-                await hub.refreshAll()
-                await hub.flows.refreshNotificationStatus()
-            }
+            Task { await refresh() }
         }
         .onChange(of: didOnboard) { _, done in
             // „Einführung erneut ansehen“ in den Einstellungen.
@@ -114,8 +112,16 @@ struct RootView: View {
             transaction.disablesAnimations = true
             withTransaction(transaction) { showWelcome = true }
         }
-        await hub.refreshAll()
+        await refresh()
+    }
+
+    /// Mitteilungs-Status prüfen und alle Konnektoren neu laden. Start und Aktivwerden der App fallen oft
+    /// zusammen – innerhalb weniger Sekunden wird deshalb nur einmal geladen.
+    private func refresh() async {
         await hub.flows.refreshNotificationStatus()
+        guard Date.now.timeIntervalSince(lastRefresh) > 5 else { return }
+        lastRefresh = .now
+        await hub.refreshAll()
     }
 
     #if DEBUG
@@ -125,13 +131,13 @@ struct RootView: View {
         guard let screen = hub.launchScreen else { return false }
         switch screen {
         case "calendar":
-            open(.connector(.calendar))
+            openOnHub(.connector(.calendar))
         case "gmail":
-            open(.connector(.gmail))
+            openOnHub(.connector(.gmail))
         case "spotify":
-            open(.connector(.spotify))
+            openOnHub(.connector(.spotify))
         case "discord":
-            open(.connector(.discord))
+            openOnHub(.connector(.discord))
         case "appearance":
             hub.selectedTab = .settings
             settingsPath = [.appearance]
@@ -160,7 +166,7 @@ struct RootView: View {
         return false
     }
 
-    private func open(_ route: Route) {
+    private func openOnHub(_ route: Route) {
         hub.selectedTab = .hub
         hubPath = [route]
     }
