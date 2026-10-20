@@ -1,0 +1,86 @@
+name: iOS-App bauen
+
+on:
+  push:
+    paths:
+      - "AppHub-iOS/**"
+      - ".github/workflows/ios-app.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: App-Hub bauen
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      BUNDLE_ID: com.yarazu.AppHub
+    defaults:
+      run:
+        working-directory: AppHub-iOS
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Neueste stabile Xcode-Version wählen
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -vi -e beta -e rc | sort -V | tail -1)
+          echo "Verwende $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Für den Simulator bauen
+        run: |
+          xcodebuild -project AppHub.xcodeproj -target AppHub -configuration Debug \
+            -sdk iphonesimulator SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO \
+            -quiet build
+          test -d build/Debug-iphonesimulator/AppHub.app
+
+      - name: Screenshots im Simulator
+        continue-on-error: true
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devices = json.load(sys.stdin)["devices"]
+          def version(key):
+              return [int(n) for n in re.findall(r"\d+", key.split("iOS-")[-1])] if "iOS-" in key else []
+          for runtime in sorted(devices, key=version, reverse=True):
+              if "iOS-" not in runtime:
+                  continue
+              phones = [d for d in devices[runtime] if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]]
+              if phones:
+                  print(phones[-1]["udid"])
+                  break
+          ')
+          echo "Simulator: $UDID"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4 || true
+          xcrun simctl install "$UDID" build/Debug-iphonesimulator/AppHub.app
+          mkdir -p screenshots
+          for screen in hub calendar gmail spotify appearance setup connect; do
+            xcrun simctl terminate "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE_ID" -AppHubDemo YES -AppHubScreen "$screen"
+            sleep 6
+            xcrun simctl io "$UDID" screenshot "screenshots/$screen.png"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: AppHub-iOS/screenshots
+          if-no-files-found: ignore
+
+      - name: Unsigniertes IPA bauen (zum Sideloaden)
+        run: |
+          xcodebuild -project AppHub.xcodeproj -target AppHub -configuration Release \
+            -sdk iphoneos SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            -quiet build
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/AppHub.app Payload/
+          zip -qry AppHub-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AppHub-unsigned-ipa
+          path: AppHub-iOS/AppHub-unsigned.ipa
