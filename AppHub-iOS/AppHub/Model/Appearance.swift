@@ -71,14 +71,67 @@ enum BackgroundPreset: String, CaseIterable, Identifiable {
     }
 }
 
-/// Hintergrundbild, Verlauf, Unschärfe, Abdunklung und Akzentfarbe.
+/// Mitgelieferte Hintergrundbilder im Asset-Katalog.
+enum Wallpaper: String, CaseIterable, Identifiable {
+    case nordlicht, duenen, gebirge, tiefsee, glut
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .nordlicht: "Nordlicht"
+        case .duenen: "Dünen"
+        case .gebirge: "Gebirge"
+        case .tiefsee: "Tiefsee"
+        case .glut: "Glut"
+        }
+    }
+
+    var imageName: String { "wallpaper-\(rawValue)" }
+
+    var image: UIImage? { UIImage(named: imageName) }
+}
+
+/// Was hinter allen Bildschirmen liegt.
+enum BackgroundSource: Equatable {
+    case photo
+    case wallpaper(Wallpaper)
+    case gradient(BackgroundPreset)
+
+    static let standard = BackgroundSource.wallpaper(.nordlicht)
+
+    init(storage: String?) {
+        let parts = (storage ?? "").split(separator: ":", maxSplits: 1).map(String.init)
+        let kind = parts.first ?? ""
+        let value = parts.count > 1 ? parts[1] : ""
+        switch kind {
+        case "photo":
+            self = .photo
+        case "wallpaper":
+            self = Wallpaper(rawValue: value).map { .wallpaper($0) } ?? Self.standard
+        case "gradient":
+            self = BackgroundPreset(rawValue: value).map { .gradient($0) } ?? Self.standard
+        default:
+            self = Self.standard
+        }
+    }
+
+    var storage: String {
+        switch self {
+        case .photo: "photo"
+        case .wallpaper(let wallpaper): "wallpaper:\(wallpaper.rawValue)"
+        case .gradient(let preset): "gradient:\(preset.rawValue)"
+        }
+    }
+}
+
+/// Hintergrund (eigenes Foto, Bild oder Verlauf), Unschärfe, Abdunklung und Akzentfarbe.
 @MainActor
 @Observable
 final class Appearance {
     private enum Keys {
         static let accent = "appearance.accent"
-        static let preset = "appearance.preset"
-        static let usesPhoto = "appearance.usesPhoto"
+        static let source = "appearance.source"
         static let blur = "appearance.blur"
         static let dim = "appearance.dim"
     }
@@ -89,13 +142,8 @@ final class Appearance {
         didSet { defaults.set(accentChoice.rawValue, forKey: Keys.accent) }
     }
 
-    var preset: BackgroundPreset {
-        didSet { defaults.set(preset.rawValue, forKey: Keys.preset) }
-    }
-
-    /// `true`, wenn das eigene Foto statt eines Verlaufs angezeigt wird.
-    var usesPhoto: Bool {
-        didSet { defaults.set(usesPhoto, forKey: Keys.usesPhoto) }
+    var source: BackgroundSource {
+        didSet { defaults.set(source.storage, forKey: Keys.source) }
     }
 
     var blur: Double {
@@ -106,23 +154,36 @@ final class Appearance {
         didSet { defaults.set(dim, forKey: Keys.dim) }
     }
 
+    /// Das eigene Foto, falls eines gewählt wurde (auch wenn gerade ein anderer Hintergrund aktiv ist).
     private(set) var photo: UIImage?
 
     var accent: Color { accentChoice.color }
 
-    /// Das Bild, das gerade wirklich angezeigt wird.
-    var activePhoto: UIImage? { usesPhoto ? photo : nil }
+    /// Das Bild hinter der App – eigenes Foto oder mitgeliefertes Bild; `nil` bei Verläufen.
+    var backgroundImage: UIImage? {
+        switch source {
+        case .photo: photo ?? Wallpaper.nordlicht.image
+        case .wallpaper(let wallpaper): wallpaper.image
+        case .gradient: nil
+        }
+    }
+
+    /// Der Verlauf, falls einer gewählt ist.
+    var gradient: BackgroundPreset? {
+        if case .gradient(let preset) = source { return preset }
+        return nil
+    }
 
     init() {
         accentChoice = AccentChoice(rawValue: defaults.string(forKey: Keys.accent) ?? "") ?? .lime
-        preset = BackgroundPreset(rawValue: defaults.string(forKey: Keys.preset) ?? "") ?? .aurora
-        usesPhoto = defaults.bool(forKey: Keys.usesPhoto)
+        source = BackgroundSource(storage: defaults.string(forKey: Keys.source))
         blur = defaults.object(forKey: Keys.blur) as? Double ?? 0
-        dim = defaults.object(forKey: Keys.dim) as? Double ?? 0.3
+        dim = defaults.object(forKey: Keys.dim) as? Double ?? 0.25
         photo = UIImage(contentsOfFile: Self.photoURL.path)
+        if source == .photo && photo == nil { source = .standard }
     }
 
-    /// Speichert ein ausgewähltes Foto verkleinert im App-Speicher.
+    /// Speichert ein ausgewähltes Foto verkleinert im App-Speicher und zeigt es an.
     func setPhoto(data: Data) -> Bool {
         guard let original = UIImage(data: data) else { return false }
         let scaled = Self.downscaled(original, maxPixels: 2400)
@@ -133,27 +194,21 @@ final class Appearance {
             return false
         }
         photo = scaled
-        usesPhoto = true
+        source = .photo
         return true
     }
 
     func removePhoto() {
         try? FileManager.default.removeItem(at: Self.photoURL)
         photo = nil
-        usesPhoto = false
-    }
-
-    func selectPreset(_ preset: BackgroundPreset) {
-        self.preset = preset
-        usesPhoto = false
+        if source == .photo { source = .standard }
     }
 
     func reset() {
         accentChoice = .lime
-        preset = .aurora
-        usesPhoto = photo != nil
+        source = .standard
         blur = 0
-        dim = 0.3
+        dim = 0.25
     }
 
     private static var photoURL: URL {

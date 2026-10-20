@@ -253,8 +253,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "App-Hub";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Der Hub zeigt deine nächsten Termine an und legt auf Wunsch neue Termine an.";
+				INFOPLIST_KEY_CFBundleDisplayName = Orbit;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Orbit zeigt deine nächsten Termine, erinnert dich vor Terminen und legt auf Wunsch neue Termine an.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -282,8 +283,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "App-Hub";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Der Hub zeigt deine nächsten Termine an und legt auf Wunsch neue Termine an.";
+				INFOPLIST_KEY_CFBundleDisplayName = Orbit;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Orbit zeigt deine nächsten Termine, erinnert dich vor Terminen und legt auf Wunsch neue Termine an.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

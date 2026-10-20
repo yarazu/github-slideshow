@@ -165,6 +165,29 @@ final class SpotifyService {
         }
     }
 
+    // MARK: - Befehle für Flows (werfen Fehler, damit der Verlauf sie zeigen kann)
+
+    func pause() async throws {
+        if !isDemo {
+            _ = try await request("me/player/pause", method: "PUT")
+        }
+        playback?.is_playing = false
+    }
+
+    func resume() async throws {
+        if !isDemo {
+            _ = try await request("me/player/play", method: "PUT")
+        }
+        playback?.is_playing = true
+    }
+
+    func play(contextURI: String) async throws {
+        if !isDemo {
+            _ = try await request("me/player/play", method: "PUT", json: ["context_uri": contextURI])
+        }
+        playback?.is_playing = true
+    }
+
     func disconnect() {
         auth.signOut()
         playback = nil

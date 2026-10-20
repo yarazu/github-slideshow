@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Kopf jeder Detailseite: Hub ←→ Konnektor mit Status.
-private struct ConnectionHeader: View {
+struct ConnectionHeader: View {
     let connector: Connector
     let detail: String
 
@@ -20,7 +20,7 @@ private struct ConnectionHeader: View {
     }
 }
 
-private struct DetailScaffold<Content: View>: View {
+struct DetailScaffold<Content: View>: View {
     let title: String
     let refresh: () async -> Void
     @ViewBuilder let content: Content
