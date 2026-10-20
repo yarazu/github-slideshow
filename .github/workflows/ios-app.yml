@@ -12,6 +12,8 @@ jobs:
     name: App-Hub bauen
     runs-on: macos-15
     timeout-minutes: 45
+    permissions:
+      contents: write
     env:
       BUNDLE_ID: com.yarazu.AppHub
     defaults:
@@ -69,6 +71,22 @@ jobs:
           name: screenshots
           path: AppHub-iOS/screenshots
           if-no-files-found: ignore
+
+      - name: Screenshots ins Repository übernehmen
+        if: github.event_name == 'push' && hashFiles('AppHub-iOS/screenshots/*.png') != ''
+        continue-on-error: true
+        run: |
+          mkdir -p Screenshots
+          for f in screenshots/*.png; do
+            sips -s format jpeg -s formatOptions 80 -Z 1200 "$f" --out "Screenshots/$(basename "${f%.png}").jpg" >/dev/null
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Screenshots
+          if ! git diff --cached --quiet; then
+            git commit -m "Update app screenshots [skip ci]"
+            git push origin HEAD:"$GITHUB_REF_NAME"
+          fi
 
       - name: Unsigniertes IPA bauen (zum Sideloaden)
         run: |
