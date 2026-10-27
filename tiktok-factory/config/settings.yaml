@@ -1,0 +1,70 @@
+# Technische Einstellungen – Werte hier ändern statt im Code.
+
+video:
+  width: 1080
+  height: 1920
+  fps: 30
+  crf: 20              # Qualität des Endvideos (kleiner = besser/größer)
+  preset: medium       # x264-Preset des Endvideos
+  shot_min: 2.0        # Bildwechsel frühestens nach … Sekunden
+  shot_max: 4.0        # … spätestens nach … Sekunden
+  shot_target: 3.0
+  zoom_video: 0.06     # leichter Zoom pro Clip (6 %)
+  zoom_photo: 0.12     # Ken-Burns-Zoom bei Fotos
+  end_padding: 0.35    # Sekunden nach dem letzten Wort (kurz halten – Loop!)
+
+duration:
+  min_hard: 61         # TikTok vergütet erst ab 1 Minute
+  max_hard: 90
+  target: 70           # Zielwert beim Verlängern/Kürzen
+  max_rounds: 3        # max. Neuvertonungen wegen Länge
+
+audio:
+  target_lufs: -14
+  true_peak: -1.5
+  lra: 11
+  music_below_voice_db: 18   # Musik liegt so viele dB unter der Stimme
+  music_fade_in: 1.0
+  music_fade_out: 2.0
+
+subtitles:
+  font_file: Poppins-Black.ttf     # aus assets/fonts/
+  font_name: Poppins Black
+  font_size: 185                  # ASS-Größe; ergibt ca. 75 px hohe Großbuchstaben
+  outline: 9
+  shadow: 3
+  color: "#FFFFFF"
+  outline_color: "#000000"
+  highlight_color: "#FFE135"       # aktives Wort
+  uppercase: true
+  max_words: 3
+  max_chars: 15
+  max_width: 900                   # px – rechts liegt die TikTok-Buttonleiste
+  position_y: 1080                 # Mitte der Untertitel (mittleres Drittel: 640–1280)
+  hook_font_size: 140
+  hook_position_y: 470
+  hook_duration: 2.0
+  hook_box_color: "#FFFFFF"
+  hook_text_color: "#000000"
+
+whisper:
+  model: small          # tiny | base | small | medium | large-v3
+  device: auto          # auto | cpu | cuda
+  compute_type: int8    # int8 läuft überall; float16 nur mit GPU
+  min_match: 0.5        # darunter weicht die Aufnahme zu stark vom Skript ab
+
+script:
+  min_words: 160
+  max_words: 185
+  max_attempts: 3       # Reparaturversuche, wenn Regeln verletzt sind
+  default_niche: wusstestdu
+  research_max_searches: 6
+
+broll:
+  search_per_page: 15
+  search_cache_days: 7
+  avoid_recent_videos: 30   # Clips aus den letzten N Videos möglichst nicht wiederverwenden
+
+trends:
+  max_age_hours: 24     # trends.md ist danach veraltet und wird vor einer Trend-Charge neu recherchiert
+  max_searches: 8

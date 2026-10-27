@@ -1,0 +1,34 @@
+{
+  "titel": "Drei Herzen, blaues Blut",
+  "hook": "Ein Oktopus hat drei Herzen. Und eins davon bleibt beim Schwimmen stehen.",
+  "hook_overlay": "3 Herzen. Blaues Blut.",
+  "hook_pexels_suchbegriffe": ["octopus underwater", "octopus close up"],
+  "szenen": [
+    {"text": "Zwei kleine Herzen pumpen das Blut nur durch die Kiemen.", "pexels_suchbegriffe": ["octopus swimming", "underwater reef"]},
+    {"text": "Das dritte, das Körperherz, versorgt den Rest des Tieres.", "pexels_suchbegriffe": ["octopus coral reef", "deep blue ocean"]},
+    {"text": "Und genau dieses Herz setzt beim Schwimmen für einige Momente aus.", "pexels_suchbegriffe": ["octopus swimming", "underwater ocean"]},
+    {"text": "Warum? Das weiß die Forschung bis heute nicht genau.", "pexels_suchbegriffe": ["marine biologist", "scientist microscope"]},
+    {"text": "Vielleicht krabbeln Kraken deshalb lieber über den Meeresboden, als zu schwimmen.", "pexels_suchbegriffe": ["octopus crawling seabed", "sea floor"]},
+    {"text": "Aber warte – ihr Blut ist noch seltsamer. Es ist blau.", "pexels_suchbegriffe": ["deep blue water", "blue liquid"]},
+    {"text": "Statt Eisen transportiert bei ihnen ein kupferhaltiges Eiweiß den Sauerstoff: Hämocyanin.", "pexels_suchbegriffe": ["copper metal", "laboratory test tube blue"]},
+    {"text": "Und dieses Kupfer färbt das Blut blau, sobald es Sauerstoff bindet.", "pexels_suchbegriffe": ["blue ink in water", "blue liquid drop"]},
+    {"text": "Jetzt wird es richtig verrückt: Kraken schmecken mit ihren Saugnäpfen.", "pexels_suchbegriffe": ["octopus tentacles suckers", "octopus arm close up"]},
+    {"text": "Forscher der Harvard-Universität fanden dort Sensoren, die tasten und schmecken zugleich.", "pexels_suchbegriffe": ["scientist laboratory", "university campus"]},
+    {"text": "Ein Oktopus weiß also, wie etwas schmeckt, bevor er es überhaupt frisst.", "pexels_suchbegriffe": ["octopus hunting", "crab on sand"]},
+    {"text": "Doch das Erstaunlichste steckt in seinen Armen.", "pexels_suchbegriffe": ["octopus arms", "octopus tentacles"]},
+    {"text": "Ein Oktopus hat rund 500 Millionen Nervenzellen – ungefähr so viele wie ein Hund.", "pexels_suchbegriffe": ["dog portrait", "neurons animation"]},
+    {"text": "Aber mehr als zwei Drittel davon sitzen nicht im Kopf, sondern in Armen und Körper.", "pexels_suchbegriffe": ["octopus tentacles moving", "neural network"]},
+    {"text": "Ein Oktopus denkt also mit dem ganzen Körper.", "pexels_suchbegriffe": ["octopus camouflage", "octopus moving"]},
+    {"text": "Und damit so ein Körper überhaupt funktioniert, reicht ein Herz nicht aus. Denn …", "pexels_suchbegriffe": ["octopus underwater", "heartbeat"]}
+  ],
+  "schluss_typ": "loop",
+  "beschreibung": "Drei Herzen, blaues Blut und Arme, die mitdenken: Warum der Oktopus das seltsamste Tier im Meer ist.",
+  "hashtags": ["#tierfakten", "#oktopus", "#wusstestdu", "#natur"],
+  "quellen": [
+    {"fakt": "Oktopusse haben drei Herzen: zwei Kiemenherzen und ein Körperherz. Das Körperherz setzt beim Schwimmen kurz aus; warum, ist nicht sicher geklärt.", "quelle": "Live Science", "url": "https://www.livescience.com/how-many-hearts-does-an-octopus-have"},
+    {"fakt": "Das Blut ist blau, weil das kupferhaltige Hämocyanin den Sauerstoff transportiert.", "quelle": "Live Science", "url": "https://www.livescience.com/how-many-hearts-does-an-octopus-have"},
+    {"fakt": "In den Saugnäpfen sitzen Sensoren, die tasten und schmecken (Harvard, 2020).", "quelle": "Harvard Gazette", "url": "https://news.harvard.edu/gazette/story/2020/10/octopus-suction-cups-hold-its-taste-and-touch-sensors/"},
+    {"fakt": "Originalstudie: van Giesen et al., Molecular Basis of Chemotactile Sensation in Octopus, Cell 183 (2020).", "quelle": "Cell / PubMed Central", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7605239"},
+    {"fakt": "Über 500 Millionen Nervenzellen, ähnlich viele wie ein Hund; mehr als zwei Drittel davon in Armen und Körper.", "quelle": "OIST via ScienceDaily", "url": "https://sciencedaily.com/releases/2020/11/201102120027.htm"}
+  ]
+}

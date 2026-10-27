@@ -1,0 +1,129 @@
+# Nischen-System
+#
+# Felder je Nische:
+#   name             Anzeigename
+#   tonalitaet       wie der Sprecher klingt / schreibt
+#   stimme           Azure-Stimme für Deutsch   (stimme_en: für --lang en)
+#   musik_stimmung   Unterordner in assets/music/ (z. B. assets/music/mystisch/)
+#   hashtags         Pool – das Skript wählt 3–5 passende
+#   pexels_stil      englische Stil-Stichworte, Fallback für die Clipsuche
+#   themenfelder     Unterthemen, damit die Ideen breit streuen
+#   regeln           nischenspezifische Grenzen (zusätzlich zu den globalen Skript-Regeln)
+
+evergreen:
+
+  psychologie:
+    name: Psychologie-Fakten & menschliches Verhalten
+    tonalitaet: neugierig, nahbar, leicht verblüffend – „das erklärt so viel über dich“
+    stimme: de-DE-KatjaNeural
+    stimme_en: en-US-AvaNeural
+    musik_stimmung: nachdenklich
+    hashtags: ["#psychologie", "#psychologiefakten", "#menschlichesverhalten", "#wusstestdu", "#lernenmittiktok", "#gehirn", "#fakten"]
+    pexels_stil: ["people city", "human face close up", "thinking person", "crowd slow motion", "brain"]
+    themenfelder: [Gedächtnis, Wahrnehmung, Denkfehler, soziale Dynamik, Gewohnheiten, Emotionen, Schlaf und Träume, Entscheidungen, Körpersprache, berühmte Experimente]
+    regeln:
+      - Keine Diagnosen, keine Therapie- oder Gesundheitstipps.
+      - Studien korrekt einordnen (Stichprobe, Replikationskrise erwähnen, wenn relevant).
+
+  geschichte:
+    name: Geschichte, Mysterien & ungelöste Rätsel
+    tonalitaet: spannend erzählt wie ein Dokumentarfilm, ruhig, mit Gänsehaut-Momenten
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: mystisch
+    hashtags: ["#geschichte", "#mysterium", "#ungelöst", "#history", "#wusstestdu", "#rätsel", "#lernenmittiktok"]
+    pexels_stil: ["ancient ruins", "old map", "candle dark", "castle fog", "museum artifacts"]
+    themenfelder: [Antike, Mittelalter, verschollene Orte, ungelöste Rätsel, Archäologie, Entdeckungen, kuriose Gesetze, Erfindungen]
+    regeln:
+      - Spekulationen klar als Theorie kennzeichnen.
+      - Keine Verharmlosung von Gewalt, keine Verschwörungsmythen als Fakt.
+
+  weltraum:
+    name: Weltraum & Wissenschaft
+    tonalitaet: staunend, episch, aber präzise – große Zahlen greifbar machen
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: episch
+    hashtags: ["#weltraum", "#universum", "#astronomie", "#wissenschaft", "#space", "#wusstestdu", "#lernenmittiktok"]
+    pexels_stil: ["galaxy", "stars night sky", "planet earth from space", "nebula", "telescope"]
+    themenfelder: [Planeten, Sterne, Schwarze Löcher, Raumfahrtgeschichte, Physik im Alltag, Zeit und Relativität, Leben im All, Mond]
+    regeln:
+      - Zahlen und Größenordnungen exakt aus der Quelle übernehmen (NASA, ESA, Fachpublikationen).
+
+  tiere:
+    name: Unglaubliche Tierfakten
+    tonalitaet: verspielt, begeistert, warm – „die Natur ist verrückt“
+    stimme: de-DE-KatjaNeural
+    stimme_en: en-US-AvaNeural
+    musik_stimmung: leicht
+    hashtags: ["#tierfakten", "#tiere", "#natur", "#wusstestdu", "#tierwelt", "#animals", "#lernenmittiktok"]
+    pexels_stil: ["wildlife close up", "animal slow motion", "ocean underwater", "forest nature", "bird flying"]
+    themenfelder: [Meerestiere, Insekten, Vögel, Säugetiere, Superkräfte von Tieren, Tarnung, Intelligenz, Rekorde]
+    regeln:
+      - Keine Tierquälerei zeigen oder verharmlosen.
+
+  wusstestdu:
+    name: „Wusstest du …?“-Fakten
+    tonalitaet: schnell, überraschend, augenzwinkernd – ein Aha nach dem anderen
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: modern
+    hashtags: ["#wusstestdu", "#fakten", "#funfacts", "#allgemeinwissen", "#lernenmittiktok", "#interessant"]
+    pexels_stil: ["city timelapse", "abstract light", "nature aerial", "everyday objects", "science lab"]
+    themenfelder: [Alltag, Essen, Sprache, Körper (ohne Gesundheitstipps), Erfindungen, Rekorde, Städte, Kurioses aus der Wissenschaft]
+    regeln:
+      - Keine Mythen wiederholen, die längst widerlegt sind – außer um sie zu entlarven.
+
+  stoizismus:
+    name: Stoizismus & Mindset
+    tonalitaet: ruhig, klar, eindringlich – wie ein weiser Mentor, nie belehrend
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: ruhig
+    hashtags: ["#stoizismus", "#mindset", "#philosophie", "#marcusaurelius", "#seneca", "#selbstentwicklung", "#stoic"]
+    pexels_stil: ["marble statue", "mountain sunrise", "person walking alone", "ocean waves", "ancient rome"]
+    themenfelder: [Marc Aurel, Seneca, Epiktet, Umgang mit Kontrolle, Gelassenheit, Disziplin, Vergänglichkeit, Philosophiegeschichte]
+    regeln:
+      - Zitate nur wörtlich belegt (Werk und Stelle als Quelle).
+      - Keine Psychotherapie-Versprechen, keine Heilsversprechen.
+
+  geld:
+    name: Geld-Wissen & Spartipps
+    tonalitaet: sachlich-locker, alltagsnah, ehrlich – Allgemeinbildung statt Versprechen
+    stimme: de-DE-KatjaNeural
+    stimme_en: en-US-AvaNeural
+    musik_stimmung: modern
+    hashtags: ["#geldwissen", "#finanzbildung", "#sparen", "#spartipps", "#geld", "#lernenmittiktok"]
+    pexels_stil: ["coins", "piggy bank", "supermarket shopping", "calculator desk", "euro money"]
+    themenfelder: [Geschichte des Geldes, Inflation erklärt, Psychologie des Kaufens, Haushalts-Spartricks, Zinseszins (als Konzept), Werbetricks, Verbraucherrechte allgemein]
+    regeln:
+      - Keine Anlageberatung, keine Empfehlung einzelner Produkte, Aktien, Kryptowährungen oder Anbieter.
+      - Keine Renditeversprechen; Beispiele als Rechenbeispiel kennzeichnen.
+
+  technik:
+    name: Technik & KI einfach erklärt
+    tonalitaet: klar, begeistert, ohne Fachchinesisch – Vergleiche aus dem Alltag
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: modern
+    hashtags: ["#technik", "#ki", "#künstlicheintelligenz", "#tech", "#einfacherklärt", "#lernenmittiktok"]
+    pexels_stil: ["circuit board macro", "data center", "robot", "smartphone hands", "code on screen"]
+    themenfelder: [Wie Dinge funktionieren, KI-Grundlagen, Internet, Smartphones, Erfindungsgeschichte, Datenschutz-Grundwissen, Energie und Akkus]
+    regeln:
+      - Keine Produktwerbung, keine Kaufempfehlungen.
+      - Keine echten Personen per KI nachbilden oder Deepfakes erklären als Anleitung.
+
+trend:
+
+  trend:
+    name: Aktuelle Trends Deutschland
+    tonalitaet: aktuell, einordnend, neugierig – Trend als Aufhänger, zeitloses Wissen als Kern
+    stimme: de-DE-ConradNeural
+    stimme_en: en-US-AndrewNeural
+    musik_stimmung: modern
+    hashtags: ["#aktuell", "#trend", "#deutschland", "#wusstestdu", "#lernenmittiktok"]
+    pexels_stil: ["germany city", "people street", "abstract light", "nature aerial"]
+    themenfelder: [Themen aus data/trends.md]
+    regeln:
+      - Keine Tragödien, Unglücke, Verbrechen oder politische Polarisierung als Clickbait.
+      - Trend nur als Aufhänger; Kern sind überprüfbare, zeitlose Fakten.

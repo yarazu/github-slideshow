@@ -1,0 +1,27 @@
+# Geheimnisse
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Laufzeitdaten
+output/*
+!output/.gitkeep
+work/
+cache/
+logs/
+
+# Eigene Musik nicht einchecken (Lizenzen liegen bei dir)
+assets/music/**/*.mp3
+assets/music/**/*.wav
+assets/music/**/*.m4a
+assets/music/**/*.ogg
+assets/music/**/*.flac
+assets/broll/**/*.mp4
+assets/broll/**/*.mov
+assets/broll/**/*.jpg
+assets/broll/**/*.jpeg
+assets/broll/**/*.png

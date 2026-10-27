@@ -1,0 +1,10 @@
+# Kern
+anthropic>=0.70
+python-dotenv>=1.0
+PyYAML>=6.0
+requests>=2.31
+Pillow>=10.0
+# Untertitel (Wort-Zeitstempel, lokal)
+faster-whisper>=1.1
+# Tests
+pytest>=8.0
