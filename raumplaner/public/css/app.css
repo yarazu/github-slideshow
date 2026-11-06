@@ -59,7 +59,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0f1420;
     --surface: #171e2c;
     --surface-2: #1c2433;
@@ -108,22 +108,75 @@
   }
 }
 
+/* Ausdrückliche Wahl in claude.ai (Theme-Umschalter) hat Vorrang vor der Systemeinstellung */
+:root[data-theme='dark'] {
+  --bg: #0f1420;
+  --surface: #171e2c;
+  --surface-2: #1c2433;
+  --surface-3: #232d3f;
+  --border: #2a3446;
+  --border-strong: #3a465c;
+  --text: #e7ebf3;
+  --text-2: #b4bdcc;
+  --text-3: #8a94a6;
+  --primary: #5b8cff;
+  --primary-hover: #7aa2ff;
+  --primary-soft: #1f2c4d;
+  --primary-ink: #0b1020;
+  --focus: #7aa2ff;
+  --free: #5fd38d;
+  --free-bg: #133524;
+  --free-fill: #1a4a31;
+  --free-stroke: #3fb873;
+  --busy: #ff8a7a;
+  --busy-bg: #3f1b18;
+  --busy-fill: #5a2420;
+  --busy-stroke: #e0604e;
+  --soon: #f5c35b;
+  --soon-bg: #3b2d10;
+  --soon-fill: #574217;
+  --soon-stroke: #d9a23a;
+  --blocked-fill: #2a303b;
+  --blocked-stroke: #6b7486;
+  --area-fill: #1f2633;
+  --area-stroke: #313b4d;
+  --area-text: #7e8899;
+  --plan-bg: #141a26;
+  --plan-grid: #1f2736;
+  --mine: #7aa2ff;
+  --mine-bg: #213464;
+  --other-bg: #2a3446;
+  --other-ink: #d5dbe6;
+  --danger: #ff7b72;
+  --danger-hover: #ff958e;
+  --danger-soft: #3d1c1a;
+  --warning-soft: #3a2f14;
+  --success-soft: #15301f;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 18px 40px rgb(0 0 0 / 0.55);
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
 
-html,
 body {
   margin: 0;
-  padding: 0;
-}
-
-body {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
+}
+
+/* Fläche unter der Statusleiste von Handys in Kopfzeilenfarbe */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px);
+  z-index: 60;
+  background: var(--surface);
 }
 
 a {
@@ -210,13 +263,15 @@ p {
 
 .app-header {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 50;
   height: var(--header-h);
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 20px;
+  padding-block: 0;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -343,7 +398,9 @@ p {
 .app-main {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 20px 64px;
+  padding-block: 24px 64px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
 }
 
 .page-head {
@@ -1032,8 +1089,8 @@ table.table {
 
 .toasts {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -1864,7 +1921,8 @@ dialog.dialog::backdrop {
 
 @media (max-width: 760px) {
   .app-header {
-    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
     gap: 8px;
   }
   .brand-name {
@@ -1897,7 +1955,9 @@ dialog.dialog::backdrop {
     display: none;
   }
   .app-main {
-    padding: 16px 16px 48px;
+    padding-block: 16px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
   }
   .grid-2,
   .grid-3,

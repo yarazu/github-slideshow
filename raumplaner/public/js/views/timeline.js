@@ -201,7 +201,7 @@ export async function renderTimeline(root, { query }) {
       const track = h('div', { class: `tl-track${room.bookable ? '' : ' disabled'}`, dataset: { roomId: room.id } }, gridlines());
       if (isToday && now > rangeStart) track.append(h('div', { class: 'tl-past', style: { width: `${pct(now)}%` } }));
       for (const b of list) {
-        const mine = b.isOwner || b.attendees.some((a) => a.email === state.me.email);
+        const mine = b.isOwner || b.isAttendee;
         const cls = ['tl-block', b.type === 'block' ? 'block' : mine ? 'mine' : '', b.end <= now ? 'past' : ''].filter(Boolean).join(' ');
         const label = b.type === 'block' ? `Gesperrt: ${b.title}` : b.title;
         track.append(

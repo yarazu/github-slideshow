@@ -52,6 +52,19 @@ const RULES = {
   default_reminder_minutes: (v) => intIn(v, 0, 1440, 'Standard-Erinnerung'),
 };
 
+/** Prüft und übernimmt Änderungen an den Einstellungen (rein, ohne Datenbank – auch im Browser nutzbar). */
+export function normalizeSettings(patch, current) {
+  const next = { ...current };
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (!(key in RULES)) continue;
+    next[key] = RULES[key](value);
+  }
+  if (next.day_end_hour <= next.day_start_hour) {
+    throw badRequest('Das Tagesende muss nach dem Tagesbeginn liegen.');
+  }
+  return next;
+}
+
 function intIn(v, min, max, label) {
   const n = Number(v);
   if (!Number.isInteger(n) || n < min || n > max) throw badRequest(`${label} muss zwischen ${min} und ${max} liegen.`);
@@ -86,14 +99,7 @@ export class Settings {
   }
 
   update(patch) {
-    const next = { ...this.all() };
-    for (const [key, value] of Object.entries(patch || {})) {
-      if (!(key in RULES)) continue;
-      next[key] = RULES[key](value);
-    }
-    if (next.day_end_hour <= next.day_start_hour) {
-      throw badRequest('Das Tagesende muss nach dem Tagesbeginn liegen.');
-    }
+    const next = normalizeSettings(patch, this.all());
     this.db.tx(() => {
       for (const key of Object.keys(RULES)) {
         this.db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [

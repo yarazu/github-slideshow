@@ -4,7 +4,7 @@ import { conflict } from './errors.js';
 const rect = (x, y, w, h) => ({ type: 'rect', x, y, w, h });
 
 /** Beispielgebäude, damit man sofort sieht, wie Lagepläne funktionieren. */
-const DEMO = {
+export const DEMO = {
   building: { name: 'Hauptgebäude', address: 'Musterstraße 1, 12345 Musterstadt' },
   floors: [
     {

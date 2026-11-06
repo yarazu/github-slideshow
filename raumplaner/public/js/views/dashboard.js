@@ -1,4 +1,5 @@
 import { bus, del, get, post, qs } from '../api.js';
+import { navigate } from '../nav.js';
 import { openBookingDetails, openBookingDialog, roomFacts } from '../booking-dialog.js';
 import { bookableRooms, dateKey, dayBounds, fmt, isAdmin, loadLayout, minutesOfDay, nextSlot, roomPlace, state, todayKey } from '../state.js';
 import { debounce, emptyState, h, icon, relativeTime, toast, toastError } from '../ui.js';
@@ -76,7 +77,7 @@ export async function renderDashboard(root) {
                       await post('/api/admin/demo', { withBookings: true });
                       await loadLayout();
                       toast('Beispielgebäude geladen', { type: 'success', body: 'Schau dir den Lageplan unter „Raum finden“ an.' });
-                      location.hash = '#/finden';
+                      navigate('/finden');
                     } catch (err) {
                       toastError(err);
                       e.currentTarget.disabled = false;
@@ -184,7 +185,7 @@ export async function renderDashboard(root) {
               items.map((n) =>
                 h(
                   'div',
-                  { class: `notif${n.read ? '' : ' unread'}`, onClick: () => (location.hash = n.link || '#/benachrichtigungen') },
+                  { class: `notif${n.read ? '' : ' unread'}`, onClick: () => navigate(n.link || '/benachrichtigungen') },
                   h(
                     'div',
                     { style: { minWidth: '0' } },

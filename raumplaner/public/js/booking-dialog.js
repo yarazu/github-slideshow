@@ -102,13 +102,28 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
   const recInfo = h('div', { class: 'hint' });
   const recUntilField = editing ? null : h('div', { class: 'field', hidden: true }, h('label', { for: 'bk-until' }, 'Wiederholen bis'), untilIn);
 
-  const attendees = new Map((booking?.attendees || []).map((a) => [a.email.toLowerCase(), a.name || null]));
+  // Teilnehmende: Schlüssel ist in der Server-Version die E-Mail-Adresse, in der Web-Version die claude.ai-ID.
+  const hosted = Boolean(state.hosted);
+  const meKey = hosted ? state.me.id : String(state.me.email).toLowerCase();
+  const attendees = new Map((booking?.attendees || []).map((a) => [a.key ?? String(a.email).toLowerCase(), a.name || null]));
   const datalistId = `dl-${Math.random().toString(36).slice(2, 8)}`;
   const datalist = h('datalist', { id: datalistId });
-  const attIn = h('input', { type: 'text', list: datalistId, autocomplete: 'off', placeholder: 'E-Mail oder Name, Enter zum Hinzufügen', 'aria-label': 'Teilnehmende hinzufügen' });
+  const attIn = h('input', {
+    type: 'text',
+    list: datalistId,
+    autocomplete: 'off',
+    placeholder: hosted ? 'Namen eingeben und aus der Liste wählen' : 'E-Mail oder Name, Enter zum Hinzufügen',
+    'aria-label': 'Teilnehmende hinzufügen',
+  });
   const tokenBox = h('div', { class: 'token-input' });
-  const attHint = h('div', { class: 'hint' }, 'Alle Teilnehmenden erhalten eine Einladung mit Kalendereintrag und werden über Änderungen informiert.');
-  const descIn = h('textarea', { class: 'input', id: 'bk-desc', rows: 2, maxlength: 4000, placeholder: 'Optional: Agenda, Hinweise …' }, booking?.description ?? '');
+  const attHint = h(
+    'div',
+    { class: 'hint' },
+    hosted
+      ? 'Eingeladene sehen den Termin unter „Meine Buchungen“ und werden in der App über Änderungen informiert.'
+      : 'Alle Teilnehmenden erhalten eine Einladung mit Kalendereintrag und werden über Änderungen informiert.',
+  );
+  const descIn = h('textarea', { class: 'input', id: 'bk-desc', rows: 2, maxlength: hosted ? 1000 : 4000, placeholder: 'Optional: Agenda, Hinweise …' }, booking?.description ?? '');
   const privIn = h('input', { type: 'checkbox', checked: Boolean(booking?.isPrivate) });
   const blockNotice = h(
     'div',
@@ -121,34 +136,53 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
   const errBox = h('div', { class: 'form-error', role: 'alert' });
 
   let directory = [];
+  function mergeDirectory(users) {
+    const known = new Map(directory.map((u) => [u.key, u]));
+    for (const u of users) {
+      const key = hosted ? u.id : String(u.email || '').toLowerCase();
+      if (!key || key === meKey) continue;
+      known.set(key, { key, name: u.name || u.email || 'Unbenannt', email: u.email || '' });
+    }
+    directory = [...known.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    datalist.replaceChildren(...directory.map((u) => h('option', { value: hosted ? u.name : u.email }, hosted ? u.email : u.name)));
+  }
   loadDirectory(true)
     .then((users) => {
-      directory = users;
-      datalist.replaceChildren(...users.filter((u) => u.email !== state.me.email).map((u) => h('option', { value: u.email }, u.name)));
+      mergeDirectory(users);
       renderTokens();
     })
     .catch(() => {});
 
-  function nameFor(email) {
-    return attendees.get(email) || directory.find((u) => u.email.toLowerCase() === email)?.name || null;
+  const nameFor = (key) => attendees.get(key) || directory.find((u) => u.key === key)?.name || null;
+
+  function resolveKey(text) {
+    let v = String(text).trim();
+    const angle = /<([^>]+)>/.exec(v);
+    if (angle) v = angle[1].trim();
+    const lower = v.toLowerCase();
+    const hit = directory.find((u) => u.name.toLowerCase() === lower || (u.email && u.email.toLowerCase() === lower));
+    if (hit) return hit.key;
+    if (!hosted && EMAIL_RE.test(lower)) return lower; // externe Gäste per E-Mail
+    return null;
   }
 
   function renderTokens() {
     tokenBox.replaceChildren(
-      ...[...attendees.keys()].map((email) => {
-        const name = nameFor(email);
+      ...[...attendees.keys()].map((key) => {
+        const name = nameFor(key);
+        const label = name || (hosted ? 'Person' : key);
         return h(
           'span',
-          { class: 'chip static', title: email },
-          name ? `${name}` : email,
+          { class: 'chip static', title: hosted ? label : key },
+          label,
           h(
             'button',
             {
               class: 'chip-x',
               type: 'button',
-              'aria-label': `${email} entfernen`,
+              'aria-label': `${label} entfernen`,
               onClick: () => {
-                attendees.delete(email);
+                attendees.delete(key);
                 renderTokens();
                 updateCapacityHint();
               },
@@ -164,26 +198,29 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
   function addAttendees(raw) {
     let ok = true;
     for (const part of String(raw).split(/[,;\n]+/)) {
-      let v = part.trim();
-      if (!v) continue;
-      const angle = /<([^>]+)>/.exec(v);
-      if (angle) v = angle[1];
-      v = v.trim().toLowerCase();
-      if (!EMAIL_RE.test(v)) {
-        const match = directory.find((u) => u.name.toLowerCase() === part.trim().toLowerCase());
-        if (match) v = match.email.toLowerCase();
-        else {
-          errBox.textContent = `„${part.trim()}“ ist keine gültige E-Mail-Adresse.`;
-          ok = false;
-          continue;
-        }
+      if (!part.trim()) continue;
+      const key = resolveKey(part);
+      if (!key) {
+        errBox.textContent = hosted
+          ? `„${part.trim()}“ wurde nicht gefunden. Bitte eine Person aus der Vorschlagsliste wählen.`
+          : `„${part.trim()}“ ist keine gültige E-Mail-Adresse.`;
+        ok = false;
+        continue;
       }
-      if (v !== state.me.email.toLowerCase()) attendees.set(v, attendees.get(v) || null);
+      if (key !== meKey) attendees.set(key, attendees.get(key) || null);
     }
     renderTokens();
     updateCapacityHint();
     return ok;
   }
+
+  const searchPeople = debounce(async (q) => {
+    try {
+      mergeDirectory(await get(`/api/users/directory?${qs({ q })}`));
+    } catch {
+      /* Vorschläge sind optional */
+    }
+  }, 150);
 
   attIn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
@@ -195,13 +232,14 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
     }
   });
   attIn.addEventListener('input', (e) => {
-    // Auswahl aus der Vorschlagsliste übernehmen
-    if (!e.inputType || e.inputType === 'insertReplacementText') {
-      if (EMAIL_RE.test(attIn.value.trim()) && directory.some((u) => u.email === attIn.value.trim())) {
-        addAttendees(attIn.value);
-        attIn.value = '';
-      }
+    const v = attIn.value.trim();
+    // Auswahl aus der Vorschlagsliste direkt übernehmen
+    if ((!e.inputType || e.inputType === 'insertReplacementText') && v && directory.some((u) => u.name === v || u.email === v)) {
+      addAttendees(v);
+      attIn.value = '';
+      return;
     }
+    if (hosted && v.length >= 2) searchPeople(v);
   });
   attIn.addEventListener('blur', () => {
     if (attIn.value.trim() && addAttendees(attIn.value)) attIn.value = '';
@@ -249,7 +287,7 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
     titleIn.placeholder = block ? 'z. B. Malerarbeiten, Technik-Wartung …' : 'z. B. Teammeeting, Kundentermin …';
     blockNotice.hidden = !block;
     attendeeField.hidden = block;
-    privField.hidden = block;
+    privField.hidden = block || hosted;
     saveBtn.replaceChildren(icon(block ? 'lock' : 'check'), block ? 'Sperren' : editing ? 'Speichern' : 'Buchen');
     checkAvailability();
   }
@@ -508,7 +546,7 @@ export function openBookingDialog({ roomId, start, end, booking, onDone } = {}) 
 
   // ---------------------------------------------------------------- Aufbau
   const attendeeField = h('div', { class: 'field' }, h('span', { class: 'label' }, 'Teilnehmende'), tokenBox, datalist, attHint);
-  const privField = h('label', { class: 'check' }, privIn, h('span', null, 'Privat – andere sehen nur „Privater Termin“'));
+  const privField = h('label', { class: 'check', hidden: hosted }, privIn, h('span', null, 'Privat – andere sehen nur „Privater Termin“'));
 
   const form = h(
     'form',
@@ -589,15 +627,20 @@ export async function openBookingDetails(idOrBooking, { onChange } = {}) {
       h('dt', null, 'Raum'),
       h('dd', null, h('strong', null, b.room.name), ` · ${b.floor.name} · ${b.building.name}`, room ? h('div', { class: 'muted small' }, roomFacts(room)) : null),
       h('dt', null, b.type === 'block' ? 'Gesperrt von' : 'Gebucht von'),
-      h('dd', null, `${b.user.name} `, h('a', { href: `mailto:${b.user.email}` }, b.user.email)),
-      b.attendees.length ? [h('dt', null, 'Teilnehmende'), h('dd', null, b.attendees.map((a) => a.name || a.email).join(', '))] : null,
+      h(
+        'dd',
+        null,
+        `${b.user.name} `,
+        b.user.email ? (state.hosted ? h('span', { class: 'muted' }, b.user.email) : h('a', { href: `mailto:${b.user.email}` }, b.user.email)) : null,
+      ),
+      b.attendees.length ? [h('dt', null, 'Teilnehmende'), h('dd', null, b.attendees.map((a) => a.name || a.email || 'Person').join(', '))] : null,
       b.description ? [h('dt', null, 'Beschreibung'), h('dd', { style: { whiteSpace: 'pre-wrap' } }, b.description)] : null,
       b.cancelReason ? [h('dt', null, 'Grund'), h('dd', null, b.cancelReason)] : null,
     ),
   );
 
   const actions = [];
-  if (!b.masked && b.status === 'confirmed') {
+  if (!b.masked && b.status === 'confirmed' && !state.hosted) {
     actions.push(h('a', { class: 'btn', href: `/api/bookings/${b.id}/ics`, download: `termin-${b.id}.ics` }, icon('download'), 'In Kalender'));
   }
   actions.push(h('span', { class: 'spacer' }));

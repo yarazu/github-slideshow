@@ -3,6 +3,9 @@ import { get } from './api.js';
 
 /** Globaler Zustand der App. */
 export const state = {
+  /** true in der Web-Version auf claude.ai (kein eigener Server) */
+  hosted: false,
+  hostedConnect: null,
   config: null,
   me: null,
   calendarUrl: '',

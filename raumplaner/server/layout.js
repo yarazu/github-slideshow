@@ -20,7 +20,7 @@ export function detectImage(buf) {
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
-function normalizeShape(shape, floor) {
+export function normalizeShape(shape, floor) {
   if (shape === null || shape === undefined || shape === '') return null;
   let s = shape;
   if (typeof s === 'string') {
@@ -46,7 +46,7 @@ function normalizeShape(shape, floor) {
   throw badRequest('Unbekannte Raumform.');
 }
 
-function normalizeEquipment(list) {
+export function normalizeEquipment(list) {
   if (list === undefined || list === null) return '[]';
   const items = (Array.isArray(list) ? list : String(list).split(','))
     .map((s) => String(s).trim())

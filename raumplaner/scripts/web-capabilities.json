@@ -1,0 +1,13 @@
+{
+  "db": {
+    "rules": [
+      { "path": "layout", "read": "view", "write": "admin" },
+      { "path": "settings", "read": "view", "write": "admin" },
+      { "path": "people", "read": "view", "write": "admin" },
+      { "path": "people/{self}", "read": "view", "write": "interact" }
+    ]
+  },
+  "user": { "scopes": ["profile", "email"] },
+  "assets": {},
+  "downloads": true
+}

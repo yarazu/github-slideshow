@@ -82,6 +82,7 @@ export class BookingService {
 
   toApi(row, viewer) {
     const visible = this.canSeeDetails(row, viewer);
+    const viewerEmail = String(viewer?.email || '').toLowerCase();
     return {
       id: row.id,
       type: row.type,
@@ -98,8 +99,9 @@ export class BookingService {
       floor: { id: row.floor_id, name: row.floor_name },
       building: { id: row.building_id, name: row.building_name },
       user: { id: row.user_id, name: row.user_name, email: row.user_email },
-      attendees: visible ? (row.attendees || []).map((a) => ({ email: a.email, name: a.name || null })) : [],
+      attendees: visible ? (row.attendees || []).map((a) => ({ key: a.email.toLowerCase(), email: a.email, name: a.name || null })) : [],
       isOwner: viewer?.id === row.user_id,
+      isAttendee: Boolean(viewerEmail) && (row.attendees || []).some((a) => a.email.toLowerCase() === viewerEmail),
       canEdit: Boolean(
         viewer && (viewer.role === 'admin' || viewer.id === row.user_id) && row.status === 'confirmed' && row.end_ts > this.now(),
       ),

@@ -1,5 +1,6 @@
 import { bus, get, post } from './api.js';
 import { openBookingDetails, openBookingDialog } from './booking-dialog.js';
+import { currentPath, initHostedNav, navigate, setRouter } from './nav.js';
 import { isAdmin, loadLayout, state } from './state.js';
 import { h, icon, toast } from './ui.js';
 import { renderAdmin } from './views/admin.js';
@@ -40,6 +41,15 @@ let events = null;
 
 async function boot() {
   try {
+    if (state.hosted) {
+      // Web-Version in claude.ai: Die Identität kommt von claude.ai, es gibt keine eigene Anmeldung.
+      initHostedNav();
+      state.config = await get('/api/config');
+      document.title = 'Raumplaner';
+      applyMe(await get('/api/me'));
+      await startApp();
+      return;
+    }
     state.config = await get('/api/config');
     document.title = state.config.orgName === 'Raumplaner' ? 'Raumplaner' : `Raumplaner · ${state.config.orgName}`;
     if (state.config.needsSetup) {
@@ -74,8 +84,11 @@ async function startApp() {
   await loadLayout();
   renderShell();
   connectLive();
-  window.removeEventListener('hashchange', route);
-  window.addEventListener('hashchange', route);
+  setRouter(route);
+  if (!state.hosted) {
+    window.removeEventListener('hashchange', route);
+    window.addEventListener('hashchange', route);
+  }
   await route();
 }
 
@@ -92,7 +105,7 @@ function showFatal(err) {
           { class: 'card-body stack' },
           h('h1', null, 'Der Raumplaner ist gerade nicht erreichbar'),
           h('p', { class: 'muted' }, err?.message || 'Unbekannter Fehler.'),
-          h('button', { class: 'btn btn-primary', type: 'button', onClick: () => location.reload() }, icon('refresh'), 'Erneut versuchen'),
+          state.hosted ? null : h('button', { class: 'btn btn-primary', type: 'button', onClick: () => location.reload() }, icon('refresh'), 'Erneut versuchen'),
         ),
       ),
     ),
@@ -154,7 +167,9 @@ function renderShell() {
         badgeEl,
       ),
       h('a', { class: 'btn btn-ghost btn-icon', href: '#/profil', 'aria-label': 'Profil & Einstellungen', title: `${state.me.name} – Profil & Einstellungen` }, icon('user')),
-      h(
+      state.hosted
+        ? null
+        : h(
         'button',
         {
           class: 'btn btn-ghost btn-icon',
@@ -175,7 +190,22 @@ function renderShell() {
     ),
   );
   const main = h('main', { class: 'app-main', id: 'view', tabindex: '-1' });
-  app.replaceChildren(header, main);
+  const readOnly =
+    state.hosted && !state.config.canWrite
+      ? h(
+          'div',
+          { class: 'notice warning', style: { maxWidth: '1440px', margin: '12px auto 0', width: 'calc(100% - 32px)' } },
+          icon('eye'),
+          h(
+            'div',
+            null,
+            state.config.loggedIn
+              ? 'Du kannst den Raumplaner ansehen, aber nicht buchen. Für Schreibzugriff wende dich an die Person, die ihn geteilt hat.'
+              : 'Bitte melde dich in claude.ai an, um Räume zu buchen.',
+          ),
+        )
+      : null;
+  app.replaceChildren(...[header, readOnly, main].filter(Boolean));
   updateBadge();
 }
 
@@ -197,7 +227,7 @@ function setOnline(online) {
 // ------------------------------------------------------------------ Router
 
 function parseHash() {
-  const raw = location.hash.replace(/^#/, '') || '/';
+  const raw = currentPath();
   const [path, query = ''] = raw.split('?');
   return { path: path || '/', query: new URLSearchParams(query) };
 }
@@ -209,10 +239,11 @@ async function route() {
 
   // Deep-Link aus Benachrichtigungen: Buchungsdialog vorausgefüllt öffnen
   if (path === '/buchen') {
-    location.replace('#/finden');
     const start = Number(query.get('start'));
     const end = Number(query.get('end'));
-    setTimeout(() => openBookingDialog({ roomId: Number(query.get('room')) || undefined, start: start || undefined, end: end || undefined }), 50);
+    const roomId = Number(query.get('room')) || undefined;
+    navigate('/finden', { replace: true });
+    setTimeout(() => openBookingDialog({ roomId, start: start || undefined, end: end || undefined }), 50);
     return;
   }
 
@@ -235,13 +266,25 @@ async function route() {
     console.error(err);
     view.append(h('div', { class: 'notice danger' }, icon('alert'), h('div', null, `Die Ansicht konnte nicht geladen werden: ${err.message}`)));
   }
-  if (query.get('id') && path === '/buchungen') openBookingDetails(Number(query.get('id')));
+  if (query.get('id') && path === '/buchungen') openBookingDetails(query.get('id'));
   window.scrollTo(0, 0);
 }
 
 // ------------------------------------------------------------------ Live-Verbindung
 
 function connectLive() {
+  if (state.hosted) {
+    // Web-Version: Live-Daten kommen direkt aus der claude.ai-Datenbank (siehe hosted/backend.js).
+    state.hostedConnect({
+      onStatus: setOnline,
+      onNotification: handleNotification,
+      onUnread: (count) => {
+        state.unread = count;
+        updateBadge();
+      },
+    });
+    return;
+  }
   events?.close();
   events = new EventSource('/api/events');
   let wasOffline = false;
@@ -267,19 +310,7 @@ function connectLive() {
     state.unread = JSON.parse(e.data).unreadCount;
     updateBadge();
   });
-  events.addEventListener('notification', (e) => {
-    const n = JSON.parse(e.data);
-    state.unread = n.unreadCount;
-    updateBadge();
-    bus.emit('notification', n);
-    toast(n.title, {
-      body: n.body,
-      type: n.type === 'cancelled' ? 'error' : 'info',
-      timeout: 9000,
-      action: n.link ? { label: 'Ansehen', onClick: () => (location.hash = n.link.replace(/^#/, '#')) } : undefined,
-    });
-    desktopNotify(n);
-  });
+  events.addEventListener('notification', (e) => handleNotification(JSON.parse(e.data)));
   events.addEventListener('bookings-changed', (e) => bus.emit('bookings-changed', JSON.parse(e.data)));
   events.addEventListener('layout-changed', () => {
     loadLayout()
@@ -295,15 +326,28 @@ function connectLive() {
   });
 }
 
+function handleNotification(n) {
+  state.unread = n.unreadCount;
+  updateBadge();
+  bus.emit('notification', n);
+  toast(n.title, {
+    body: n.body,
+    type: n.type === 'cancelled' ? 'error' : 'info',
+    timeout: 9000,
+    action: n.link ? { label: 'Ansehen', onClick: () => navigate(n.link) } : undefined,
+  });
+  desktopNotify(n);
+}
+
 export function desktopNotify(n) {
   try {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (state.hosted || !('Notification' in window) || Notification.permission !== 'granted') return;
     if (localStorage.getItem('rp.desktop') === 'off') return;
     if (!document.hidden) return; // sichtbar -> Toast reicht
     const note = new Notification(n.title, { body: n.body, tag: `rp-${n.id}`, icon: '/favicon.svg' });
     note.onclick = () => {
       window.focus();
-      if (n.link) location.hash = n.link;
+      if (n.link) navigate(n.link);
       note.close();
     };
   } catch {

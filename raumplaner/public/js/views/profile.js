@@ -25,7 +25,84 @@ function desktopState() {
   return Notification.permission; // 'default' | 'denied'
 }
 
+function renderHostedProfile(root) {
+  const me = state.me;
+  const reminderSel = h('select', { class: 'input', id: 'pf-reminder' }, REMINDERS.map(([v, label]) => h('option', { value: String(v) }, label)));
+  reminderSel.value = String(me.reminderMinutes);
+  reminderSel.addEventListener('change', async () => {
+    try {
+      const res = await put('/api/me', { reminderMinutes: Number(reminderSel.value) });
+      state.me = res.user;
+      toast('Gespeichert', { type: 'success', timeout: 2500 });
+    } catch (err) {
+      toastError(err);
+    }
+  });
+  const testBtn = h(
+    'button',
+    {
+      class: 'btn',
+      type: 'button',
+      onClick: async () => {
+        setBusy(testBtn, true);
+        try {
+          await post('/api/me/test-notification');
+          toast('Test verschickt', { type: 'success', body: 'Gleich erscheint sie oben rechts in der Glocke – auch auf deinen anderen Geräten.' });
+        } catch (err) {
+          toastError(err);
+        } finally {
+          setBusy(testBtn, false);
+        }
+      },
+    },
+    icon('bell'),
+    'Test-Benachrichtigung senden',
+  );
+  const role = !state.config.canWrite ? 'Nur Ansicht' : me.role === 'admin' ? 'Administration' : 'Mitarbeiter/in';
+  root.append(
+    h('div', { class: 'page-head' }, h('div', null, h('h1', null, 'Profil & Benachrichtigungen'), h('p', null, [me.name, me.email, role].filter(Boolean).join(' · ')))),
+    h(
+      'div',
+      { class: 'grid-2' },
+      h(
+        'div',
+        { class: 'card' },
+        h('div', { class: 'card-head' }, h('h2', null, icon('bell'), 'So wirst du benachrichtigt')),
+        h(
+          'div',
+          { class: 'card-body form' },
+          h(
+            'div',
+            { class: 'notice' },
+            icon('info'),
+            h('div', null, 'In der App: live über die Glocke oben rechts – auf jedem Gerät, auf dem du den Raumplaner öffnest. Was du verpasst, wartet dort auf dich.'),
+          ),
+          field('Erinnerung vor Terminbeginn', reminderSel, 'Erinnerungen erscheinen, während der Raumplaner geöffnet ist.'),
+          h('div', null, testBtn),
+          h(
+            'p',
+            { class: 'hint' },
+            'E-Mails mit Kalendereinladung verschickt die selbst betriebene Version des Raumplaners (Anleitung im Projekt unter raumplaner/README.md).',
+          ),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'card' },
+        h('div', { class: 'card-head' }, h('h2', null, icon('user'), 'Konto')),
+        h(
+          'div',
+          { class: 'card-body stack-sm' },
+          h('p', null, 'Du bist über dein claude.ai-Konto angemeldet – ein eigenes Passwort gibt es hier nicht.'),
+          h('p', { class: 'muted small' }, `Deine Rolle: ${role}. Wer buchen und verwalten darf, legt die Person fest, die den Raumplaner in claude.ai teilt.`),
+        ),
+      ),
+    ),
+  );
+}
+
 export async function renderProfile(root) {
+  if (state.hosted) return renderHostedProfile(root);
   const me = state.me;
 
   // ---------------------------------------------------------------- Benachrichtigungen

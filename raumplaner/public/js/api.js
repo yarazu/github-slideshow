@@ -19,8 +19,16 @@ export class ApiError extends Error {
   }
 }
 
+let backend = null;
+
+/** Die Web-Version (claude.ai) ersetzt den HTTP-Server durch ein eingebautes Daten-Backend. */
+export function setBackend(fn) {
+  backend = fn;
+}
+
 /** fetch-Hülle: setzt den CSRF-Header, wandelt Fehler in verständliche Meldungen um. */
 export async function api(method, url, body, { raw = false, headers = {} } = {}) {
+  if (backend) return backend(method, url, body, { raw, headers });
   const opts = {
     method,
     credentials: 'same-origin',

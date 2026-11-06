@@ -1,4 +1,5 @@
 import { bus, get, post } from '../api.js';
+import { navigate } from '../nav.js';
 import { fmt } from '../state.js';
 import { emptyState, h, icon, relativeTime, toastError } from '../ui.js';
 
@@ -82,8 +83,8 @@ export async function renderNotifications(root) {
       render();
       await markRead([n.id]);
     }
-    if (n.link) location.hash = n.link;
-    else if (n.bookingId) location.hash = `#/buchungen?id=${n.bookingId}`;
+    if (n.link) navigate(n.link);
+    else if (n.bookingId) navigate(`/buchungen?id=${n.bookingId}`);
   }
 
   async function load(before) {

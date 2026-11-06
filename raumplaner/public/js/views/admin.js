@@ -10,6 +10,14 @@ const TABS = [
   ['protokoll', 'Protokoll', 'list'],
 ];
 
+const HOSTED_TABS = [
+  ['gebaeude', 'Gebäude & Pläne', 'layers'],
+  ['benutzer', 'Personen', 'users'],
+  ['einstellungen', 'Einstellungen', 'sliders'],
+  ['system', 'Daten', 'database'],
+  ['protokoll', 'Protokoll', 'list'],
+];
+
 export async function renderAdmin(root, { params }) {
   const tab = params[0] || 'gebaeude';
   root.append(
@@ -17,12 +25,14 @@ export async function renderAdmin(root, { params }) {
     h(
       'nav',
       { class: 'tabs', 'aria-label': 'Verwaltung' },
-      TABS.map(([key, label, ic]) => h('a', { href: `#/admin/${key}`, class: key === tab ? 'active' : '' }, icon(ic), ' ', label)),
+      (state.hosted ? HOSTED_TABS : TABS).map(([key, label, ic]) => h('a', { href: `#/admin/${key}`, class: key === tab ? 'active' : '' }, icon(ic), ' ', label)),
     ),
   );
   const body = h('div', { class: 'stack' });
   root.append(body);
-  const views = { gebaeude: renderBuildings, benutzer: renderUsers, einstellungen: renderSettings, system: renderSystem, protokoll: renderAudit };
+  const views = state.hosted
+    ? { gebaeude: renderBuildings, benutzer: renderPeopleHosted, einstellungen: renderSettings, system: renderDataHosted, protokoll: renderAudit }
+    : { gebaeude: renderBuildings, benutzer: renderUsers, einstellungen: renderSettings, system: renderSystem, protokoll: renderAudit };
   return views[tab](body);
 }
 
@@ -417,6 +427,7 @@ async function renderSettings(body) {
     { class: 'input' },
     [0, 5, 10, 15, 30, 60, 120, 1440].map((m) => h('option', { value: String(m), selected: m === s.default_reminder_minutes }, m ? (m >= 60 ? `${m / 60} Std. vorher` : `${m} Min. vorher`) : 'keine')),
   );
+  const tzIn = h('input', { class: 'input', value: s.timezone || 'Europe/Berlin', placeholder: 'Europe/Berlin' });
   const err = h('div', { class: 'form-error' });
   const saveBtn = h('button', { class: 'btn btn-primary', type: 'submit' }, icon('check'), 'Einstellungen speichern');
 
@@ -441,6 +452,7 @@ async function renderSettings(body) {
               allowed_email_domains: domains.value,
               equipment_options: equipment.value,
               default_reminder_minutes: Number(reminder.value),
+              ...(state.hosted ? { timezone: tzIn.value.trim() } : {}),
             });
             state.config = await get('/api/config');
             toast('Einstellungen gespeichert', { type: 'success' });
@@ -465,6 +477,7 @@ async function renderSettings(body) {
             h('div', { class: 'fields-2' }, field('Belegungsplan ab (Uhr)', dayStart), field('bis (Uhr)', dayEnd)),
             field('Zeitraster', slot, 'Schrittweite für Uhrzeiten im Buchungsdialog.'),
             field('Ausstattungsmerkmale', equipment, 'Kommagetrennt, z. B. Beamer, Videokonferenz, Whiteboard.'),
+            state.hosted ? field('Zeitzone', tzIn, 'IANA-Name, z. B. Europe/Berlin oder Europe/Vienna.') : null,
           ),
         ),
         h(
@@ -477,8 +490,8 @@ async function renderSettings(body) {
             h('div', { class: 'fields-2' }, field('Max. Buchungsdauer (Stunden)', maxHours), field('Max. Tage im Voraus', maxDays)),
             h('p', { class: 'hint' }, 'Gilt für Mitarbeitende; die Administration ist davon ausgenommen.'),
             field('Standard-Erinnerung für neue Konten', reminder),
-            h('label', { class: 'check' }, allowReg, h('span', null, 'Selbstregistrierung erlauben')),
-            field('Nur diese E-Mail-Domains', domains, 'Leer = alle. Empfohlen: eure Firmen-Domain(s).'),
+            state.hosted ? null : h('label', { class: 'check' }, allowReg, h('span', null, 'Selbstregistrierung erlauben')),
+            state.hosted ? null : field('Nur diese E-Mail-Domains', domains, 'Leer = alle. Empfohlen: eure Firmen-Domain(s).'),
           ),
         ),
       ),
@@ -700,6 +713,147 @@ async function renderSystem(body) {
 
 function stat(value, label) {
   return h('div', { class: 'card stat' }, h('div', { class: 'stat-value' }, String(value)), h('div', { class: 'stat-label' }, label));
+}
+
+// ------------------------------------------------------------------ Web-Version: Personen & Daten
+
+async function renderPeopleHosted(body) {
+  const tbody = h('tbody');
+  const render = async () => {
+    let people;
+    try {
+      people = await get('/api/admin/people');
+    } catch (err) {
+      tbody.replaceChildren(h('tr', null, h('td', { colspan: 3 }, err.message)));
+      return;
+    }
+    tbody.replaceChildren(
+      ...people.map((p) =>
+        h(
+          'tr',
+          null,
+          h('td', null, h('strong', null, p.name), p.isMe ? h('span', { class: 'badge primary', style: { marginLeft: '6px' } }, 'du') : null, p.email ? h('div', { class: 'muted small' }, p.email) : null),
+          h(
+            'td',
+            null,
+            state.config.isOwner && !p.isMe
+              ? h(
+                  'select',
+                  {
+                    class: 'input auto',
+                    'aria-label': `Rolle von ${p.name}`,
+                    onChange: async (e) => {
+                      try {
+                        await put(`/api/admin/people/${encodeURIComponent(p.id)}`, { admin: e.target.value === 'admin' });
+                        toast('Rolle geändert', { type: 'success', timeout: 2500 });
+                      } catch (err) {
+                        toastError(err);
+                      }
+                      render();
+                    },
+                  },
+                  h('option', { value: 'user', selected: !p.isAdmin }, 'Mitarbeiter/in'),
+                  h('option', { value: 'admin', selected: p.isAdmin }, 'Administration'),
+                )
+              : h('span', { class: `badge ${p.isAdmin ? 'primary' : ''}` }, p.isAdmin ? 'Administration' : 'Mitarbeiter/in'),
+          ),
+          h('td', { class: 'small muted' }, p.lastSeen ? relativeTime(p.lastSeen) || fmt.dateTime(p.lastSeen) : '–'),
+        ),
+      ),
+    );
+  };
+  body.append(
+    h(
+      'div',
+      { class: 'notice' },
+      icon('info'),
+      h(
+        'div',
+        null,
+        h('p', null, 'Wer den Raumplaner nutzen darf, legst du in claude.ai über „Teilen“ fest. Personen erscheinen hier, sobald sie ihn einmal geöffnet haben.'),
+        h(
+          'p',
+          { class: 'small', style: { marginTop: '6px' } },
+          'Zum Buchen braucht man Schreibzugriff. Wer Gebäude und Pläne verwalten soll, braucht in claude.ai Bearbeitungszugriff und hier die Rolle „Administration“ (vergeben kann sie die Person, der der Raumplaner gehört).',
+        ),
+      ),
+    ),
+    h(
+      'div',
+      { class: 'card' },
+      h(
+        'div',
+        { class: 'table-wrap' },
+        h('table', { class: 'table' }, h('thead', null, h('tr', null, h('th', null, 'Person'), h('th', null, 'Rolle'), h('th', null, 'Zuletzt aktiv'))), tbody),
+      ),
+    ),
+  );
+  await render();
+}
+
+async function renderDataHosted(body) {
+  let sys;
+  try {
+    sys = await get('/api/admin/system');
+  } catch (err) {
+    body.append(h('p', { class: 'form-error' }, err.message));
+    return;
+  }
+  const exportBtn = h(
+    'button',
+    {
+      class: 'btn btn-primary',
+      type: 'button',
+      onClick: async () => {
+        setBusy(exportBtn, true);
+        try {
+          await post('/api/admin/export');
+          toast('Export erstellt', { type: 'success', body: 'Die Datei enthält Gebäude, Räume, Einstellungen und alle Buchungen.' });
+        } catch (err) {
+          toastError(err);
+        } finally {
+          setBusy(exportBtn, false);
+        }
+      },
+    },
+    icon('download'),
+    'Alle Daten exportieren (JSON)',
+  );
+  body.append(
+    h(
+      'div',
+      { class: 'grid-3' },
+      stat(sys.counts.rooms, 'Räume & Arbeitsplätze'),
+      stat(sys.counts.upcomingBookings, 'anstehende Buchungen'),
+      stat(sys.counts.people, 'Personen'),
+    ),
+    h(
+      'div',
+      { class: 'grid-2' },
+      h(
+        'div',
+        { class: 'card' },
+        h('div', { class: 'card-head' }, h('h2', null, icon('database'), 'Datensicherung')),
+        h(
+          'div',
+          { class: 'card-body stack-sm' },
+          h('p', null, 'Alle Daten liegen in claude.ai bei diesem Raumplaner. Zusätzlich kannst du jederzeit eine vollständige Kopie herunterladen – zum Archivieren oder zum Umzug auf einen eigenen Server.'),
+          h('div', null, exportBtn),
+        ),
+      ),
+      h(
+        'div',
+        { class: 'card' },
+        h('div', { class: 'card-head' }, h('h2', null, icon('refresh'), 'Automatisches Aufräumen')),
+        h(
+          'div',
+          { class: 'card-body stack-sm' },
+          h('p', null, 'Damit der Raumplaner schnell bleibt, werden Buchungen nach 60 Tagen und Benachrichtigungen nach 30 Tagen automatisch entfernt.'),
+          sys.storage ? h('p', { class: 'hint' }, `Grundrisse: ${sys.storage.files} Datei(en), ${bytes(sys.storage.bytes)} von ${bytes(sys.storage.maxBytes)}`) : null,
+        ),
+      ),
+    ),
+  );
 }
 
 // ------------------------------------------------------------------ Protokoll

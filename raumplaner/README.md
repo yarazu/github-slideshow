@@ -1,6 +1,6 @@
 # Raumplaner
 
-Zuverlässige Raumbuchung fürs Unternehmen – mit hinterlegtem **Lageplan der Gebäude** und **Benachrichtigungen über alle Kanäle**. Selbst gehostet, ohne Cloud-Dienste, ohne externe Skripte oder Schriften.
+Zuverlässige Raumbuchung fürs Unternehmen – mit hinterlegtem **Lageplan der Gebäude** und **Benachrichtigungen über alle Kanäle**. Selbst gehostet, ohne Cloud-Dienste, ohne externe Skripte oder Schriften – oder ganz ohne Server als [Web-Version auf claude.ai](#web-version-auf-claudeai-ohne-eigenen-server).
 
 ![Raum finden: Lageplan mit freien (grün), belegten (rot) und gesperrten (schraffiert) Räumen](docs/raum-finden.jpg)
 
@@ -104,6 +104,34 @@ Ohne Mailserver funktionieren In-App-, Live- und Desktop-Benachrichtigungen trot
 
 `SMTP_FROM` sollte eine Adresse sein, die der Mailserver für das Konto erlaubt (z. B. `Raumplaner <raumplaner@firma.de>`). Zum Ausprobieren ohne echten Versand: `MAIL_LOG_ONLY=true` – die E-Mails erscheinen dann im Server-Protokoll.
 
+## Web-Version auf claude.ai (ohne eigenen Server)
+
+Der Raumplaner lässt sich zusätzlich als Web-App direkt auf claude.ai nutzen – ohne Server und ohne Installation. Die Daten liegen in der gemeinsamen, live synchronisierten Datenbank der App; angemeldet wird über die claude.ai-Konten. Freigegeben wird über **„Teilen“** in claude.ai: Zum Buchen braucht man Schreibzugriff, für die Verwaltung von Gebäuden und Plänen Bearbeitungszugriff plus die Rolle „Administration“ (vergibt die Person, der die App gehört, unter *Verwaltung → Personen*).
+
+| | Web-Version (claude.ai) | Eigener Server |
+|---|---|---|
+| Einrichtung | keine – Link teilen | Server oder Docker |
+| Anmeldung | claude.ai-Konto | eigene Konten (E-Mail + Passwort) |
+| Lageplan, Editor, Buchen, Serien, Sperrungen, Raum-frei-Meldung | ✓ | ✓ |
+| Schutz vor Doppelbuchungen | Raum-Sperre (Lease) + Nachkontrolle | Datenbank-Transaktion + Trigger |
+| Live-Aktualisierung und Benachrichtigungen in der App | ✓ (geräteübergreifend gespeichert) | ✓ |
+| Erinnerungen | solange die App geöffnet ist | immer, auch per E-Mail |
+| E-Mails mit Kalendereinladung, Kalender-Abo | – | ✓ |
+| Private Termine | – | ✓ |
+| Datensicherung | Export als JSON | automatische Backups |
+| Wo liegen die Daten? | bei claude.ai | auf eurem Server |
+
+Hinweis zum Datenschutz: Namen und Buchungszeiten sind personenbezogene Daten. Klärt im Zweifel mit eurer bzw. eurem Datenschutzbeauftragten, ob claude.ai dafür genutzt werden darf – sonst ist die selbst gehostete Version die richtige Wahl.
+
+**Bauen, lokal testen, veröffentlichen**
+
+```bash
+npm run build:web     # erzeugt dist/raumplaner-web.html (eine Datei, alles eingebettet)
+npm run dev:web       # Testumgebung mit nachgebildeter claude.ai-Laufzeit: http://localhost:3955/?user=anna
+```
+
+In der Testumgebung stehen drei Personen bereit (`?user=anna` Besitzerin, `?user=ben` Mitarbeiter, `?user=cara` nur Ansicht); mehrere Tabs teilen sich dieselben Daten. Veröffentlicht wird `dist/raumplaner-web.html` als claude.ai-Artifact mit den Fähigkeiten und Zugriffsregeln aus [`scripts/web-capabilities.json`](scripts/web-capabilities.json).
+
 ## Konfiguration
 
 Alle Optionen stehen kommentiert in [`.env.example`](.env.example).
@@ -185,7 +213,10 @@ server/            Node.js-Backend (Express, eingebautes SQLite)
   schema.js        Datenbankschema inkl. Schutz-Trigger
 public/            Oberfläche (ohne Build-Schritt, keine externen Ressourcen)
   js/views/        Übersicht, Raum finden, Belegungsplan, Verwaltung, Editor …
+  js/hosted/       Daten-Backend der Web-Version (claude.ai-Datenbank statt Server)
   shared/time.js   Zeitzonen- und Serienlogik (Server und Browser)
+scripts/           Build der Web-Version
+dev/               Testumgebung der Web-Version (nachgebildete claude.ai-Laufzeit)
 test/              automatisierte Tests (node --test)
 ```
 
