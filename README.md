@@ -1,5 +1,7 @@
 # Your GitHub Learning Lab Repository for Introducing GitHub
 
+> **Neu: [Raumplaner](raumplaner/)** – Tool zum Planen und Buchen von Räumen mit hinterlegten Lageplänen und Benachrichtigungen (In-App, E-Mail mit Kalendereinladung, Erinnerungen, „Benachrichtigen, wenn frei“). Anleitung und Start: [`raumplaner/README.md`](raumplaner/README.md).
+
 Welcome to **your** repository for your GitHub Learning Lab course. This repository will be used during the different activities that I will be guiding you through. See a word you don't understand? We've included an emoji 📖 next to some key terms. Click on it to see its definition.
 
 Oh! I haven't introduced myself...

@@ -1,0 +1,21 @@
+# Start:   docker compose up -d --build
+# Logs:    docker compose logs -f
+# Update:  git pull && docker compose up -d --build
+services:
+  raumplaner:
+    build: .
+    image: raumplaner:latest
+    container_name: raumplaner
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - raumplaner-data:/data
+
+volumes:
+  raumplaner-data:
