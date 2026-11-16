@@ -87,9 +87,11 @@ Ein rahmenloses, durchscheinendes Fenster mit vier Bereichen:
 | Bereich | Was du dort machst |
 |---|---|
 | **Studio** | Quelle wählen (Nische, Thema, Trend, eigenes Skript), Sprache, Stimme und Musik einstellen, „Video erzeugen“. Rechts zeigt ein Handy den Fortschritt je Schritt und danach das fertige Video. Mehrere Aufträge laufen nacheinander; Abbrechen geht jederzeit. |
-| **Trends** | Die 10 Ideen aus `data/trends.md` mit Quelle und Datum, „Neu recherchieren“ und „Produzieren“ je Idee. |
+| **Trends** | Die 10 Ideen aus `data/trends.md` mit Quelle und Datum, „Neu recherchieren“ und „Produzieren“ je Idee. Darunter **Neue Nischen**: Claude recherchiert, welche Wissens-Nischen gerade wachsen; „Übernehmen“ macht einen Vorschlag sofort im Studio wählbar (gespeichert in `config/niches_eigene.yaml`). |
 | **Bibliothek** | Alle fertigen Videos mit Cover. Ein Klick zeigt Video, Beschreibung und Hashtags zum Kopieren, Hinweise, Quellen mit Erreichbarkeit und die Urheber des Bildmaterials. |
 | **Einstellungen** | API-Keys (landen in `.env`, werden nie im Klartext angezeigt), Stimmen-Anbieter, Modell, Darstellung (Glas-Stärke, Farbschema, Akzentfarbe) und ein Systemcheck (ffmpeg, Schrift, Whisper-Modell, Musik). |
+
+**Automatik:** Mit Anthropic-Schlüssel hält die App Trends (älter als 24 h) und Nischen-Vorschläge (älter als 7 Tage) von selbst aktuell – beim Start und alle 30 Minuten, solange sie offen ist. Jede Recherche kostet etwas API-Guthaben (grob 0,10–0,30 $); abschaltbar unter *Einstellungen → System → Automatik*. Unter *Einstellungen → Schlüssel* prüft „Verbindung testen“ jeden Dienst mit einem echten, kostenlosen Probeaufruf.
 
 In der Titelleiste: Protokoll, „Immer im Vordergrund“ und das **Mini-Overlay** – eine kleine schwebende Leiste, in die du nur ein Thema tippst und Enter drückst. `Strg/Cmd + 1–4` wechselt die Bereiche, `Esc` schließt Blätter.
 

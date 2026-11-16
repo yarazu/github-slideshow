@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .. import media
 from ..config import Config
+from ..discover import discover_niches
 from ..errors import Cancelled, ConfigError, FactoryError
 from ..history import History
 from ..llm import LLM, api_key
@@ -263,22 +264,35 @@ class JobManager:
                                  resolve=lambda i=i: batch.get(i), plans_topic=True))
                 for i in range(count)]
 
-    def submit_trend_refresh(self) -> str:
+    def _submit_research(self, kind: str, title: str, label: str, detail: str,
+                         run: Callable[[], object]) -> str:
         if not api_key(self.cfg):
-            raise ConfigError("Für die Trend-Recherche fehlt ANTHROPIC_API_KEY (unter „Einstellungen“).")
+            raise ConfigError("Für die Recherche fehlt ANTHROPIC_API_KEY (unter „Einstellungen“).")
         with self._lock:
             for e in self._entries.values():
-                if e.view.kind == "trends" and e.view.status in (WAITING, RUNNING):
+                if e.view.kind == kind and e.view.status in (WAITING, RUNNING):
                     return e.view.id
-        view = JobView(id=uuid.uuid4().hex[:10], kind="trends", mode="trends", title="Trends recherchieren",
-                       niche="trend", niche_name="Aktuelle Trends Deutschland",
-                       stages=[{"key": "thema", "label": "Trend-Recherche", "weight": 100, "state": "pending"}])
+        view = JobView(id=uuid.uuid4().hex[:10], kind=kind, mode=kind, title=title, niche="trend",
+                       niche_name="Recherche",
+                       stages=[{"key": "thema", "label": label, "weight": 100, "state": "pending"}])
 
         def action(progress: Progress) -> None:
-            progress.stage("thema", "Websuche: Google Trends, TikTok, Nachrichten der Woche")
-            refresh_trends(LLM(self.cfg), self.cfg, self.cfg.paths.data / "trends.md")
+            progress.stage("thema", detail)
+            run()
 
         return self._add(_Entry(view, action=action))
+
+    def submit_trend_refresh(self) -> str:
+        return self._submit_research(
+            "trends", "Trends recherchieren", "Trend-Recherche",
+            "Websuche: Google Trends, TikTok, Nachrichten der Woche",
+            lambda: refresh_trends(LLM(self.cfg), self.cfg, self.cfg.paths.data / "trends.md"))
+
+    def submit_niche_discovery(self) -> str:
+        return self._submit_research(
+            "nischen", "Neue Nischen suchen", "Nischen-Recherche",
+            "Websuche: was auf TikTok in Deutschland gerade wächst",
+            lambda: discover_niches(LLM(self.cfg), self.cfg))
 
     # --- Abbrechen / Aufräumen -------------------------------------------------------------
     def cancel(self, job_id: str | None = None) -> int:

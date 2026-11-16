@@ -139,7 +139,26 @@ class Config:
         for section, values in settings.items():
             if isinstance(values, dict):
                 setattr(self, section, _namespace(values))
-        self.niches = _parse_niches(_load_yaml(self.paths.config / "niches.yaml"))
+        self.custom_niches_file = self.paths.config / "niches_eigene.yaml"
+        self.custom_niches: set[str] = set()
+        self.niches: dict[str, Niche] = {}
+        self.load_niches()
+
+    def load_niches(self) -> None:
+        """niches.yaml + (falls vorhanden) niches_eigene.yaml; ändert self.niches an Ort und Stelle."""
+        data = _load_yaml(self.paths.config / "niches.yaml")
+        custom: set[str] = set()
+        if self.custom_niches_file.exists():
+            extra = _load_yaml(self.custom_niches_file).get("evergreen") or {}
+            taken = set(data.get("evergreen") or {}) | set(data.get("trend") or {})
+            for key, raw in extra.items():
+                if key not in taken:
+                    data.setdefault("evergreen", {})[key] = raw
+                    custom.add(key)
+        parsed = _parse_niches(data)
+        self.niches.clear()
+        self.niches.update(parsed)
+        self.custom_niches = custom
 
     # --- .env -----------------------------------------------------------------
     @staticmethod

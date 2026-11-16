@@ -26,9 +26,11 @@ import dotenv
 
 from .. import __version__, media
 from ..config import Config
+from ..discover import add_niche, ideas_stale, load_ideas, remove_niche
 from ..errors import ConfigError, FactoryError
-from ..llm import DEFAULT_MODEL, api_key
+from ..llm import DEFAULT_MODEL, LLM, api_key
 from ..trends import is_stale, parse_trends
+from ..utils import HttpError, http_request
 from .jobs import JobManager
 
 log = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ AZURE_VOICES = {
 }
 
 DEFAULT_PREFS = {"theme": "dark", "glass": 60, "accent": "aurora", "motion": True, "on_top": False,
-                 "transparent": True, "blur": True}
+                 "transparent": True, "blur": True, "auto_refresh": True}
 
 
 class ApiError(Exception):
@@ -185,6 +187,65 @@ def system_status(cfg: Config) -> dict:
     }
 
 
+def niches_view(cfg: Config) -> dict:
+    return {
+        "niches": [{"key": n.key, "gruppe": n.gruppe, "name": n.name, "tonalitaet": n.tonalitaet,
+                    "stimme": n.stimme, "stimme_en": n.stimme_en, "musik_stimmung": n.musik_stimmung,
+                    "themenfelder": n.themenfelder, "eigene": n.key in cfg.custom_niches}
+                   for n in cfg.niches.values()],
+        "niche_ideas": load_ideas(cfg),
+    }
+
+
+def check_service(cfg: Config, name: str) -> dict:
+    """Echter, kostenloser Probeaufruf je Dienst – zeigt, ob der Schlüssel funktioniert."""
+    def result(ok: bool, text: str) -> dict:
+        return {"ok": ok, "text": text}
+
+    try:
+        if name == "anthropic":
+            if not api_key(cfg):
+                return result(False, "Kein Schlüssel eingetragen.")
+            return result(True, f"Verbunden – Modell: {LLM(cfg).check()}")
+        if name == "azure":
+            key, region = cfg.env("AZURE_SPEECH_KEY"), cfg.env("AZURE_SPEECH_REGION", "westeurope")
+            if not key:
+                return result(False, "Kein Schlüssel eingetragen.")
+            resp = http_request("GET", f"https://{region}.tts.speech.microsoft.com/cognitiveservices/voices/list",
+                                headers={"Ocp-Apim-Subscription-Key": key}, retries=1, timeout=15)
+            if resp.status_code == 200:
+                german = sum(1 for v in resp.json() if str(v.get("Locale", "")).startswith("de-"))
+                return result(True, f"Verbunden – {german} deutsche Stimmen in Region {region}")
+            if resp.status_code in (401, 403):
+                return result(False, f"Schlüssel ungültig oder Region „{region}“ falsch.")
+            return result(False, f"Azure antwortet mit HTTP {resp.status_code}.")
+        if name == "pexels":
+            key = cfg.env("PEXELS_API_KEY")
+            if not key:
+                return result(False, "Kein Schlüssel eingetragen.")
+            resp = http_request("GET", "https://api.pexels.com/videos/search", params={"query": "ocean", "per_page": 1},
+                                headers={"Authorization": key}, retries=1, timeout=15)
+            if resp.status_code == 200:
+                return result(True, f"Verbunden – {resp.json().get('total_results', '?')} Clips zu „ocean“")
+            return result(False, "Schlüssel ungültig." if resp.status_code == 401 else f"Pexels: HTTP {resp.status_code}")
+        if name == "elevenlabs":
+            key, voice = cfg.env("ELEVENLABS_API_KEY"), cfg.env("ELEVENLABS_VOICE_ID")
+            if not key:
+                return result(False, "Kein Schlüssel eingetragen.")
+            url = f"https://api.elevenlabs.io/v1/voices/{voice}" if voice else "https://api.elevenlabs.io/v1/voices"
+            resp = http_request("GET", url, headers={"xi-api-key": key}, retries=1, timeout=15)
+            if resp.status_code == 200:
+                label = resp.json().get("name") if voice else "Schlüssel gültig, aber noch keine Voice-ID eingetragen"
+                return result(bool(voice), f"Verbunden – Stimme: {label}" if voice else label)
+            return result(False, "Schlüssel ungültig." if resp.status_code == 401 else
+                          "Voice-ID nicht gefunden." if resp.status_code in (400, 404) else f"HTTP {resp.status_code}")
+    except HttpError as exc:
+        return result(False, f"Dienst nicht erreichbar: {exc}")
+    except FactoryError as exc:
+        return result(False, str(exc))
+    raise ApiError("Unbekannter Dienst.")
+
+
 def trends_view(cfg: Config) -> dict:
     path = cfg.paths.data / "trends.md"
     researched, ideas = parse_trends(path)
@@ -275,6 +336,7 @@ class AppServer:
         self.shell = shell or {"mode": "browser", "platform": sys.platform, "backdrop": "opaque"}
         self.jobs = JobManager(cfg)
         self.uploads: dict[str, Path] = {}
+        self._stopped = threading.Event()
         self.ui_dir = cfg.paths.root / "ui"
         self.httpd = ThreadingHTTPServer(("127.0.0.1", port), _handler(self))
         self.httpd.daemon_threads = True
@@ -286,9 +348,34 @@ class AppServer:
 
     def start(self) -> None:
         threading.Thread(target=self.httpd.serve_forever, daemon=True, name="factory-http").start()
+        threading.Thread(target=self._auto_loop, daemon=True, name="factory-auto").start()
         log.debug("App-Server läuft auf Port %d", self.port)
 
+    def auto_refresh(self) -> list[str]:
+        """Veraltete Trends und Nischen-Vorschläge von selbst neu recherchieren (abschaltbar)."""
+        cfg = self.cfg
+        if not load_prefs(cfg).get("auto_refresh", True) or not api_key(cfg) or self.jobs.busy():
+            return []
+        started = []
+        if is_stale(cfg.paths.data / "trends.md", cfg.trends.max_age_hours):
+            started.append(self.jobs.submit_trend_refresh())
+        if ideas_stale(cfg):
+            started.append(self.jobs.submit_niche_discovery())
+        if started:
+            log.info("Automatische Aktualisierung: Trends/Nischen werden neu recherchiert")
+        return started
+
+    def _auto_loop(self) -> None:
+        delay = 4.0
+        while not self._stopped.wait(delay):
+            try:
+                self.auto_refresh()
+            except FactoryError as exc:
+                log.warning("Automatische Aktualisierung: %s", exc)
+            delay = 1800.0   # danach alle 30 Minuten prüfen, solange die App offen ist
+
     def stop(self) -> None:
+        self._stopped.set()
         self.jobs.cancel()
         self.httpd.shutdown()
         self.httpd.server_close()
@@ -299,9 +386,7 @@ class AppServer:
         return {
             "version": __version__,
             "shell": self.shell,
-            "niches": [{"key": n.key, "gruppe": n.gruppe, "name": n.name, "tonalitaet": n.tonalitaet,
-                        "stimme": n.stimme, "stimme_en": n.stimme_en, "musik_stimmung": n.musik_stimmung,
-                        "themenfelder": n.themenfelder} for n in cfg.niches.values()],
+            **niches_view(cfg),
             "default_niche": cfg.script.default_niche,
             "voices": {lang: [{"id": v, "label": label} for v, label in voices]
                        for lang, voices in AZURE_VOICES.items()},
@@ -338,6 +423,18 @@ class AppServer:
             return trends_view(cfg)
         if route == ("POST", "/api/trends/refresh"):
             return {"id": jobs.submit_trend_refresh()}
+        if route == ("GET", "/api/niches"):
+            return niches_view(cfg)
+        if route == ("POST", "/api/niches/discover"):
+            return {"id": jobs.submit_niche_discovery()}
+        if route == ("POST", "/api/niches/add"):
+            add_niche(cfg, str(body.get("key", "")))
+            return niches_view(cfg)
+        if route == ("POST", "/api/niches/remove"):
+            remove_niche(cfg, str(body.get("key", "")))
+            return niches_view(cfg)
+        if route == ("POST", "/api/check"):
+            return check_service(cfg, str(body.get("service", "")))
         if route == ("GET", "/api/library"):
             return {"items": library_list(cfg)}
         if route == ("GET", "/api/library/item"):

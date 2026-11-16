@@ -244,3 +244,58 @@ def test_glass_card_fits_the_frame_and_is_translucent():
     out = composite(frame, card, cfg.glass.blur)
     assert out.size == frame.size and out.getpixel((10, 10)) == (200, 60, 40)                # außerhalb unverändert
     assert out.getpixel((card.x + 30, card.y + card.h // 2)) != (200, 60, 40)
+
+
+# --- Neue Nischen, Automatik, Verbindungstest -----------------------------------------------------
+class FakeLLM:
+    def research(self, system, prompt, **kwargs):
+        self.prompt = prompt
+        return type("R", (), {"text": "1. True Crime light …", "urls": []})()
+
+    def structured(self, system, prompt, schema, **kwargs):
+        idea = {"name": "Alltags-Physik", "warum": "Wächst laut Quelle.", "quelle_name": "Beispiel",
+                "quelle_url": "https://example.org/x", "tonalitaet": "locker", "stimme": "weiblich",
+                "musik_stimmung": "leicht", "hashtags": ["Physik", "#alltag", "#wusstestdu"],
+                "pexels_stil": ["kitchen", "water drops"], "themenfelder": ["Küche", "Wetter"], "regeln": ["Keine Versuche mit Gefahr"]}
+        return {"ideen": [idea, {**idea, "name": "Psychologie"}]}        # zweiter Name kollidiert mit vorhandener Nische
+
+
+def test_discovered_niche_can_be_adopted_and_removed(app):
+    from factory.discover import discover_niches, ideas_stale
+
+    cfg = app.cfg
+    assert ideas_stale(cfg)
+    llm = FakeLLM()
+    ideas = discover_niches(llm, cfg)
+    assert "Psychologie-Fakten" in llm.prompt                                    # vorhandene Nischen werden ausgeschlossen
+    assert [i["key"] for i in ideas] == ["alltags_physik", "psychologie_2"]       # eindeutige Schlüssel
+    assert ideas[0]["hashtags"][0] == "#physik" and not ideas_stale(cfg)
+
+    view = data(call(app, "/api/niches/add", {"key": "alltags_physik"}))
+    added = next(n for n in view["niches"] if n["key"] == "alltags_physik")
+    assert added["eigene"] and added["stimme"] == "de-DE-KatjaNeural" and added["musik_stimmung"] == "leicht"
+    assert view["niche_ideas"]["ideen"][0]["uebernommen"] is True
+    assert Config(cfg.paths.root).niche("alltags_physik").name == "Alltags-Physik"   # überlebt einen Neustart
+    assert call(app, "/api/niches/add", {"key": "alltags_physik"})[0] == 400          # nicht doppelt
+    assert call(app, "/api/niches/remove", {"key": "psychologie"})[0] == 400          # mitgelieferte bleiben
+
+    view = data(call(app, "/api/niches/remove", {"key": "alltags_physik"}))
+    assert all(n["key"] != "alltags_physik" for n in view["niches"])
+
+
+def test_auto_refresh_needs_key_and_can_be_switched_off(app, monkeypatch):
+    assert app.auto_refresh() == []                                               # ohne Schlüssel passiert nichts
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    started = []
+    monkeypatch.setattr(app.jobs, "submit_trend_refresh", lambda: started.append("trends") or "t")
+    monkeypatch.setattr(app.jobs, "submit_niche_discovery", lambda: started.append("nischen") or "n")
+    assert app.auto_refresh() == ["t", "n"] and started == ["trends", "nischen"]   # beides veraltet
+    call(app, "/api/prefs", {"auto_refresh": False})
+    assert app.auto_refresh() == []
+
+
+def test_connection_check_reports_missing_keys(app):
+    for service in ("anthropic", "azure", "pexels", "elevenlabs"):
+        result = data(call(app, "/api/check", {"service": service}))
+        assert result == {"ok": False, "text": "Kein Schlüssel eingetragen."}
+    assert call(app, "/api/check", {"service": "quatsch"})[0] == 400

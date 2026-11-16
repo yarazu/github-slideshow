@@ -414,6 +414,10 @@ button.chip:hover { color: var(--text); background: rgb(var(--ink) / .12); trans
 .keyrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .keymeta { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 11.5px; color: var(--text-3); }
 .keymeta a { color: var(--text-2); }
+.linkbtn { color: var(--text-2); text-decoration: underline; font-size: inherit; }
+.linkbtn:hover { color: var(--text); } .linkbtn[disabled] { opacity: .5; }
+.tcard header h3 { min-width: 0; }
+.tcard header .orb { width: 30px; height: 30px; border-radius: 11px; } .tcard header .orb .ico { width: 16px; height: 16px; }
 .scard footer { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
 .checks { display: grid; gap: 6px; }
 .check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; align-items: start; padding: 9px 12px; border-radius: 13px; background: rgb(var(--ink) / .05); }

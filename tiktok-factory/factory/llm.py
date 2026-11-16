@@ -43,6 +43,20 @@ class LLM:
         self.model = cfg.env("ANTHROPIC_MODEL", DEFAULT_MODEL)
         self.effort = cfg.env("ANTHROPIC_EFFORT", "medium")
 
+    def check(self) -> str:
+        """Prüft Schlüssel und Modell ohne Kosten. Gibt den Anzeigenamen des Modells zurück."""
+        try:
+            info = self.client.models.retrieve(self.model)
+        except anthropic.AuthenticationError as exc:
+            raise ConfigError("Der Schlüssel ist ungültig.") from exc
+        except anthropic.NotFoundError as exc:
+            raise ConfigError(f"Schlüssel in Ordnung, aber das Modell „{self.model}“ gibt es nicht.") from exc
+        except anthropic.APIStatusError as exc:
+            raise ScriptError(f"Anthropic-API-Fehler {exc.status_code}: {exc.message}") from exc
+        except anthropic.APIConnectionError as exc:
+            raise ScriptError("Keine Verbindung zur Anthropic-API (Internet prüfen).") from exc
+        return getattr(info, "display_name", None) or self.model
+
     # ------------------------------------------------------------------------------
     def _create(self, **kwargs):
         try:

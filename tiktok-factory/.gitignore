@@ -9,6 +9,8 @@ __pycache__/
 
 # Laufzeitdaten
 data/app.json
+data/nischen_ideen.json
+config/niches_eigene.yaml
 output/*
 !output/.gitkeep
 work/

@@ -349,6 +349,8 @@ function nicheInfo() {
 function renderModeBody() {
   const f = S.form;
   const body = $('#mode-body');
+  if (!body) return;
+  if (!evergreen().some((n) => n.key === f.niche)) f.niche = evergreen()[0]?.key || S.data.default_niche;   // Nische wurde entfernt
   body.classList.toggle('is-trend', f.mode === 'trend');
   if (f.mode === 'niche') {
     body.innerHTML = `<div class="tiles">${evergreen().map((n) => {
@@ -605,10 +607,13 @@ function stageHtml(job) {
         <button class="btn btn-small" data-open="${esc(job.output)}">${icon('i-folder')}Ordner</button></div>
       <div class="kilabel">${icon('i-alert')}Beim Upload „KI-generierte Inhalte“ einschalten</div>`;
   } else if (job.status === 'fertig') {
-    const trends = job.kind === 'trends';
+    const trends = job.kind === 'trends' || job.kind === 'nischen';
+    const [head, text] = job.kind === 'trends' ? ['Trends aktualisiert', 'neue Ideen mit Quelle und Datum']
+      : job.kind === 'nischen' ? ['Neue Nischen gefunden', 'Vorschläge stehen unter „Trends“']
+        : ['Skript fertig', 'Sprechertext liegt im Ausgabeordner'];
     screen = `<div class="run"><span class="orb" style="--hue:var(--ok)">${icon('i-check')}</span>
-      <div class="run-stage">${trends ? 'Trends aktualisiert' : 'Skript fertig'}</div>
-      <div class="run-detail">${trends ? '10 neue Ideen mit Quelle und Datum' : 'Sprechertext liegt im Ausgabeordner'}</div></div>`;
+      <div class="run-stage">${head}</div>
+      <div class="run-detail">${text}</div></div>`;
     below = `<div class="stage-title">${esc(job.title)}</div><div class="stage-meta">${esc(metaLine(job))}</div>
       <div class="stage-actions">${trends ? `<button class="btn btn-small" data-goto="trends">${icon('i-trend')}Trends ansehen</button>`
         : `<button class="btn btn-small" data-detail="${esc(job.output)}">${icon('i-eye')}Sprechertext</button>
@@ -720,7 +725,56 @@ function renderTrends() {
         <footer>${source}<span>${esc(i.datum)}</span><span class="spacer"></span>
           <button class="btn-primary small" data-produce="${i.nr}">${icon('i-play', 'solid')}Produzieren</button></footer></article>`;
     }).join('')}</div>` : `<div class="empty glass"><span class="orb">${icon('i-trend')}</span><b>Noch keine Trend-Ideen</b><span>„Neu recherchieren“ sucht, was in Deutschland gerade Aufmerksamkeit bekommt.</span></div>`}
+    ${nicheIdeasHtml()}
   </div>`;
+}
+
+// Vorschläge für neue Nischen (Recherche per Claude) – ein Klick übernimmt sie ins Studio
+function nicheIdeasHtml() {
+  const ideas = S.data.niche_ideas;
+  const busy = S.jobs.some((j) => j.kind === 'nischen' && (j.status === 'wartet' || j.status === 'laeuft'));
+  const own = S.data.niches.filter((n) => n.eigene);
+  return `<header class="page-head" style="margin-top:22px"><div><h1>Neue Nischen</h1>
+      <p class="sub">${ideas.recherchiert ? `Recherchiert am ${esc(fmtDate(ideas.recherchiert))}` : 'Noch keine Recherche'}
+        · Vorschläge, die es bei dir noch nicht gibt${own.length ? ` · ${plural(own.length, 'eigene Nische', 'eigene Nischen')} aktiv` : ''}</p></div><span class="spacer"></span>
+      <button class="btn" id="niches-discover" ${busy ? 'disabled' : ''}>${icon('i-refresh')}${busy ? 'Suche läuft …' : 'Neue Nischen suchen'}</button></header>
+    ${ideas.ideen.length ? `<div class="tgrid">${ideas.ideen.map((i) => {
+      const source = i.quelle_url ? `<a href="${esc(i.quelle_url)}" target="_blank" rel="noopener noreferrer">${icon('i-link')}${esc(i.quelle_name || 'Quelle')}</a>` : `<span>${esc(i.quelle_name)}</span>`;
+      return `<article class="tcard glass">
+        <header><span class="orb" style="--hue:${hashHue(i.key)}">${icon('i-studio')}</span><h3>${esc(i.name)}</h3><span class="spacer"></span>
+          ${i.uebernommen ? '<span class="badge ok">übernommen</span>' : ''}</header>
+        <p>${esc(i.warum)}</p>
+        <div class="chips">${(i.themenfelder || []).slice(0, 6).map((t) => `<span class="chip static">${esc(t)}</span>`).join('')}</div>
+        <footer>${source}<span>${esc(i.musik_stimmung)} · ${esc(i.stimme)}</span><span class="spacer"></span>
+          ${i.uebernommen ? `<button class="btn btn-small" data-niche-remove="${esc(i.key)}">Entfernen</button>`
+            : `<button class="btn-primary small" data-niche-add="${esc(i.key)}">${icon('i-plus')}Übernehmen</button>`}</footer></article>`;
+    }).join('')}</div>` : `<div class="empty glass"><span class="orb">${icon('i-studio')}</span><b>Noch keine Vorschläge</b>
+      <span>„Neue Nischen suchen“ recherchiert, welche Wissens-Nischen auf TikTok in Deutschland gerade wachsen.</span></div>`}`;
+}
+
+async function nicheAction(path, key, okText) {
+  try {
+    const body = key ? { key } : {};
+    const res = await api(path, { body });
+    if (res.niches) Object.assign(S.data, res);
+    if (res.id) { S.focus = res.id; await poll(); }
+    renderTrends();
+    renderModeBody();
+    toast(okText);
+  } catch (err) {
+    toast(err.message, 'bad');
+  }
+}
+
+async function checkService(btn) {
+  btn.disabled = true;
+  try {
+    const res = await api('/api/check', { body: { service: btn.dataset.check } });
+    toast(res.text, res.ok ? 'ok' : 'bad');
+  } catch (err) {
+    toast(err.message, 'bad');
+  }
+  btn.disabled = false;
 }
 
 async function produceTrend(nr) {
@@ -849,7 +903,8 @@ function renderSettings() {
           ${KEY_ROWS.map(([name, label, hint, url]) => `<div class="frow"><label>${label}<small>${hint}</small></label><div>
               <label class="field"><input type="password" data-setting="${name}" placeholder="${st[name].set ? `gespeichert ${esc(st[name].hint)}` : 'Schlüssel einfügen'}" autocomplete="off" spellcheck="false"></label>
               <div class="keymeta"><i class="dot ${st[name].set ? '' : (name === 'ELEVENLABS_API_KEY' ? 'off' : 'bad')}"></i>${st[name].set ? 'vorhanden' : (name === 'ELEVENLABS_API_KEY' ? 'nicht gesetzt (optional)' : 'fehlt')}
-                · <a href="${url}" target="_blank" rel="noopener noreferrer">Schlüssel holen</a></div></div></div>`).join('')}
+                · <a href="${url}" target="_blank" rel="noopener noreferrer">Schlüssel holen</a>
+                ${st[name].set ? `· <button class="linkbtn" data-check="${{ ANTHROPIC_API_KEY: 'anthropic', AZURE_SPEECH_KEY: 'azure', PEXELS_API_KEY: 'pexels', ELEVENLABS_API_KEY: 'elevenlabs' }[name]}">Verbindung testen</button>` : ''}</div></div></div>`).join('')}
           <footer><button class="btn-primary small" data-save="card-keys">${icon('i-check')}Speichern</button></footer>
         </section>
         <section class="scard glass" id="card-voice" style="margin-top:16px">
@@ -883,7 +938,8 @@ function renderSettings() {
             ${check(true, 'Musik', musicText, sys.music_total ? '' : 'warn')}
             ${check(true, 'Ausgabeordner', sys.output, 'off')}
           </div>
-          <div class="frow" style="margin-top:8px"><label>Ohne Whisper<small>nur zum Testen</small></label><div><button class="toggle" role="switch" id="opt-nowhisper" aria-checked="${!S.form.whisper}"><i class="switch"></i>Wortzeiten schätzen</button></div></div>
+          <div class="frow" style="margin-top:8px"><label>Automatik<small>beim Start und alle 30 min</small></label><div><button class="toggle" role="switch" data-pref="auto_refresh" aria-checked="${p.auto_refresh}"><i class="switch"></i>Trends und Nischen aktuell halten</button></div></div>
+          <div class="frow"><label>Ohne Whisper<small>nur zum Testen</small></label><div><button class="toggle" role="switch" id="opt-nowhisper" aria-checked="${!S.form.whisper}"><i class="switch"></i>Wortzeiten schätzen</button></div></div>
           <footer><button class="btn btn-small" id="sys-check">${icon('i-refresh')}Erneut prüfen</button></footer>
         </section>
       </div>
@@ -969,7 +1025,14 @@ async function setCompact(on) {
 async function reload(what) {
   try {
     if (what === 'library') { S.data.library = (await api('/api/library')).items; renderLibrary(); }
-    if (what === 'trends') { S.data.trends = await api('/api/trends'); renderTrends(); if (S.form.mode === 'trend') { renderModeBody(); updateCta(); } }
+    if (what === 'trends') {
+      const [trends, niches] = await Promise.all([api('/api/trends'), api('/api/niches')]);
+      S.data.trends = trends;
+      Object.assign(S.data, niches);
+      renderTrends();
+      renderModeBody();
+      updateCta();
+    }
     if (what === 'settings') { Object.assign(S.data, await api('/api/settings')); renderSettings(); updateCta(); }
   } catch (err) {
     toast(err.message, 'bad');
@@ -1004,7 +1067,7 @@ async function poll() {
         if (job.status === 'fertig') {
           toast(`Fertig: ${job.title}`);
           reload('library');
-          if (job.kind === 'trends' || job.mode === 'trend') reload('trends');
+          if (job.kind === 'trends' || job.kind === 'nischen' || job.mode === 'trend') reload('trends');
         } else if (job.status === 'fehler') {
           toast(`Fehlgeschlagen: ${job.title}`, 'bad');
         }
@@ -1035,6 +1098,10 @@ function bindGlobal() {
     else if ((b = pick('[data-log]')) || pick('#status') || pick('#btn-log')) toggleLog();
     else if ((b = pick('[data-produce]'))) produceTrend(Number(b.dataset.produce));
     else if (pick('#trends-refresh')) refreshTrends();
+    else if (pick('#niches-discover')) nicheAction('/api/niches/discover', null, 'Nischen-Suche gestartet');
+    else if ((b = pick('[data-niche-add]'))) nicheAction('/api/niches/add', b.dataset.nicheAdd, 'Nische übernommen – im Studio wählbar');
+    else if ((b = pick('[data-niche-remove]'))) nicheAction('/api/niches/remove', b.dataset.nicheRemove, 'Nische entfernt');
+    else if ((b = pick('[data-check]'))) checkService(b);
     else if ((b = pick('[data-save]'))) saveCard(b.dataset.save);
     else if ((b = pick('[data-accent]'))) { setPref('accent', b.dataset.accent); $$('.swatch').forEach((s) => s.classList.toggle('is-active', s === b)); }
     else if ((b = pick('[data-pref]'))) { const on = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', on); setPref(b.dataset.pref, on); if (b.dataset.pref === 'motion' && !$('#demo-cap')) return; if (b.dataset.pref === 'motion') startDemo(); }
