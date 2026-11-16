@@ -37,6 +37,12 @@ Die Pipeline prüft beim Start selbst, ob ffmpeg alle nötigen Filter hat, und s
 
 ### Projekt installieren
 
+**Am einfachsten (Windows):** ZIP von GitHub laden, entpacken und im Ordner `tiktok-factory` die Datei **`start-windows.bat`** doppelklicken. Beim ersten Mal richtet sie alles ein: Sie bietet an, Python und ffmpeg zu installieren (über winget), legt die Python-Umgebung an und installiert die Pakete – das dauert einige Minuten. Danach startet derselbe Doppelklick direkt die App. Das schwarze Fenster dabei offen lassen; bei einem Fehler bleibt es mit der Meldung stehen. Unter macOS macht `start-mac.command` dasselbe, unter Linux `start-linux.sh`.
+
+Python selbst ist nötig – die App ist ein Python-Programm; eine fertige `.exe` gibt es nicht.
+
+**Von Hand:**
+
 ```bash
 cd tiktok-factory
 python3 -m venv .venv

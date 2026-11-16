@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 import webbrowser
 
@@ -20,6 +21,7 @@ log = logging.getLogger("app")
 SIZE = (1240, 800)
 MIN_SIZE = (980, 660)
 COMPACT_SIZE = (620, 236)
+ALIVE_AFTER = 4.0   # Sekunden, nach denen ein offenes Fenster als gelungener Start zählt
 
 
 class WindowApi:
@@ -71,7 +73,18 @@ class WindowApi:
         return bool(compact)
 
 
+def _start_marker(cfg: Config):
+    return cfg.paths.logs / "start.ok"
+
+
+def _mark_started(cfg: Config) -> None:
+    marker = _start_marker(cfg)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("ok\n", encoding="utf-8")
+
+
 def _serve_in_browser(server: AppServer, open_browser: bool) -> int:
+    _mark_started(server.cfg)
     print(f"\nTikTok Factory läuft im Browser:\n  {server.url}\n(Beenden mit Strg+C)\n")
     if open_browser:
         webbrowser.open(server.url)
@@ -130,6 +143,7 @@ def _apply_acrylic(window) -> None:
 def launch(cfg: Config, *, browser: bool = False, opaque: bool = False, gui: str | None = None,
            debug: bool = False, port: int = 0, open_browser: bool = True, blur: bool = True) -> int:
     prefs = load_prefs(cfg)
+    _start_marker(cfg).unlink(missing_ok=True)
     webview = None
     if not browser:
         try:
@@ -156,16 +170,25 @@ def launch(cfg: Config, *, browser: bool = False, opaque: bool = False, gui: str
     api._bind(window)
     if acrylic:
         window.events.loaded += lambda *_: _apply_acrylic(window)
+    # Lebt das Fenster ein paar Sekunden, gilt der Start als gelungen (die Startdatei prüft das).
+    alive = threading.Timer(ALIVE_AFTER, _mark_started, args=(cfg,))
+    alive.daemon = True
+    alive.start()
     failed: list[Exception] = []
     try:
         webview.start(gui=gui, debug=debug)
     except Exception as exc:  # kein Fenster-Backend (häufig unter Linux ohne GTK/Qt)
         failed.append(exc)
+    alive.cancel()
     if failed:
         log.warning("Das App-Fenster konnte nicht geöffnet werden (%s) – öffne im Browser.", failed[0])
         server.shell.update({"mode": "browser", "backdrop": "opaque"})
         return _serve_in_browser(server, open_browser)
     server.stop()
+    if not _start_marker(cfg).exists():
+        hint = "python app.py --opaque" if transparent else "python app.py --browser"
+        log.warning("Das Fenster hat sich nach wenigen Sekunden wieder geschlossen. Versuche: %s", hint)
+        return 4
     return 0
 
 
