@@ -20,6 +20,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--browser", action="store_true", help="im Standardbrowser statt im App-Fenster öffnen")
     p.add_argument("--opaque", action="store_true",
                    help="deckendes Fenster ohne Transparenz (falls dein System sie nicht sauber darstellt)")
+    p.add_argument("--no-blur", action="store_true",
+                   help="Windows: ohne Unschärfe hinter dem Fenster (Acrylic), nur klar durchscheinend")
     p.add_argument("--gui", choices=["qt", "gtk", "edgechromium", "cef"],
                    help="Fenster-Technik von pywebview erzwingen (Standard: automatisch)")
     p.add_argument("--port", type=int, default=0, help="fester Port für den lokalen Server (Standard: frei wählen)")
@@ -33,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     setup_logging(cfg.paths.logs, args.debug)
     return launch(cfg, browser=args.browser, opaque=args.opaque, gui=args.gui, debug=args.debug, port=args.port,
-                  open_browser=not args.no_open)
+                  open_browser=not args.no_open, blur=not args.no_blur)
 
 
 if __name__ == "__main__":

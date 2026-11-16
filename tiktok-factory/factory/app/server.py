@@ -67,7 +67,7 @@ AZURE_VOICES = {
 }
 
 DEFAULT_PREFS = {"theme": "dark", "glass": 60, "accent": "aurora", "motion": True, "on_top": False,
-                 "transparent": True}
+                 "transparent": True, "blur": True}
 
 
 class ApiError(Exception):

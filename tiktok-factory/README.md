@@ -92,7 +92,7 @@ In der Titelleiste: Protokoll, „Immer im Vordergrund“ und das **Mini-Overlay
 | System | Fenster |
 |---|---|
 | macOS | echtes System-Glas: Der Desktop hinter dem Fenster wird unscharf (Vibrancy). |
-| Windows 10/11 | durchscheinendes Fenster über WebView2 (bei Windows 11 vorinstalliert). Der Desktop scheint klar durch; die App tönt selbst ab, damit Text lesbar bleibt. Die Lichtbrechung an den Glaskanten gibt es nur hier und unter Linux (Chromium-Technik). |
+| Windows 10/11 | durchscheinendes Fenster über WebView2 (bei Windows 11 vorinstalliert). Der Desktop dahinter wird per Acrylic unscharf gestellt; lehnt Windows das ab, scheint er klar durch und die App tönt selbst ab. Die Lichtbrechung an den Glaskanten gibt es nur hier und unter Linux (Chromium-Technik). |
 | Linux | durchscheinend, wenn ein Compositor läuft (GNOME, KDE … haben einen). `requirements.txt` installiert dafür die Qt-Variante von pywebview. |
 
 Wie viel durchscheint, regelst du unter *Einstellungen → Darstellung → Glas-Stärke*.
@@ -100,6 +100,7 @@ Wie viel durchscheint, regelst du unter *Einstellungen → Darstellung → Glas-
 | Option | Bedeutung |
 |---|---|
 | `python app.py --opaque` | deckendes Fenster mit eigenem Farbhintergrund – falls dein System die Transparenz nicht sauber darstellt (schwarze oder weiße Fläche statt Desktop) |
+| `python app.py --no-blur` | Windows: ohne Acrylic-Unschärfe (z. B. wenn das Fenster beim Verschieben ruckelt) |
 | `python app.py --browser` | Oberfläche im Standardbrowser statt im App-Fenster (auch automatisch, wenn kein Fenster geöffnet werden kann) |
 | `python app.py --gui qt` | Fenster-Technik von pywebview erzwingen (`qt`, `gtk`, `edgechromium`) |
 | `python app.py --debug` | Entwicklerwerkzeuge und ausführliches Protokoll |

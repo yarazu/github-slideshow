@@ -85,8 +85,50 @@ def _serve_in_browser(server: AppServer, open_browser: bool) -> int:
     return 0
 
 
+def windows_acrylic(window) -> bool:
+    """Windows 10/11: Desktop hinter dem Fenster unscharf stellen (Acrylic) + runde Ecken (Windows 11).
+
+    Nutzt SetWindowCompositionAttribute – dieselbe (undokumentierte) Schnittstelle wie viele Acrylic-Apps.
+    Gibt False zurück, wenn Windows den Aufruf ablehnt; die Oberfläche fällt dann auf „klar“ zurück.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    class Accent(ctypes.Structure):
+        _fields_ = [("state", ctypes.c_int), ("flags", ctypes.c_int), ("color", ctypes.c_uint),
+                    ("animation", ctypes.c_int)]
+
+    class Data(ctypes.Structure):
+        _fields_ = [("attribute", ctypes.c_int), ("data", ctypes.c_void_p), ("size", ctypes.c_size_t)]
+
+    hwnd = wintypes.HWND(int(window.native.Handle.ToInt64()))
+    accent = Accent(4, 2, 0x55140D0B, 0)  # 4 = Acrylic; Farbe AABBGGRR: dunkle Tönung, 33 % deckend
+    data = Data(19, ctypes.addressof(accent), ctypes.sizeof(accent))  # 19 = WCA_ACCENT_POLICY
+    user32 = ctypes.windll.user32
+    user32.SetWindowCompositionAttribute.argtypes = [wintypes.HWND, ctypes.POINTER(Data)]
+    user32.SetWindowCompositionAttribute.restype = wintypes.BOOL
+    ok = bool(user32.SetWindowCompositionAttribute(hwnd, ctypes.byref(data)))
+    try:  # Windows 11: runde Fensterecken (33 = DWMWA_WINDOW_CORNER_PREFERENCE, 2 = rund)
+        corner = ctypes.c_int(2)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(corner), ctypes.sizeof(corner))
+    except (AttributeError, OSError):
+        pass
+    return ok
+
+
+def _apply_acrylic(window) -> None:
+    try:
+        ok = windows_acrylic(window)
+    except Exception as exc:  # ältere Windows-Version, anderes Fenster-Backend …
+        log.debug("Acrylic nicht möglich: %s", exc)
+        ok = False
+    if not ok:
+        log.warning("Windows-Unschärfe (Acrylic) ließ sich nicht einschalten – Fenster bleibt klar durchscheinend.")
+        window.evaluate_js("window.setBackdrop && window.setBackdrop('clear')")
+
+
 def launch(cfg: Config, *, browser: bool = False, opaque: bool = False, gui: str | None = None,
-           debug: bool = False, port: int = 0, open_browser: bool = True) -> int:
+           debug: bool = False, port: int = 0, open_browser: bool = True, blur: bool = True) -> int:
     prefs = load_prefs(cfg)
     webview = None
     if not browser:
@@ -99,8 +141,9 @@ def launch(cfg: Config, *, browser: bool = False, opaque: bool = False, gui: str
 
     transparent = not opaque and bool(prefs.get("transparent", True))
     vibrancy = transparent and sys.platform == "darwin"
+    acrylic = transparent and sys.platform == "win32" and blur and bool(prefs.get("blur", True))
     shell = {"mode": "desktop", "platform": sys.platform,
-             "backdrop": "vibrancy" if vibrancy else "clear" if transparent else "opaque"}
+             "backdrop": "vibrancy" if vibrancy else "acrylic" if acrylic else "clear" if transparent else "opaque"}
     server = _started(AppServer(cfg, port=port, shell=shell))
     api = WindowApi(cfg)
     if "DRAG_REGION_DIRECT_TARGET_ONLY" in webview.settings:
@@ -111,6 +154,8 @@ def launch(cfg: Config, *, browser: bool = False, opaque: bool = False, gui: str
         frameless=True, easy_drag=False, transparent=transparent, vibrancy=vibrancy,
         background_color="#0B0D14", text_select=True, on_top=bool(prefs.get("on_top")))
     api._bind(window)
+    if acrylic:
+        window.events.loaded += lambda *_: _apply_acrylic(window)
     failed: list[Exception] = []
     try:
         webview.start(gui=gui, debug=debug)

@@ -270,6 +270,7 @@ function applyPrefs() {
   let tint = 1;
   let aurora = 0.5 + g * 0.5;
   if (backdrop === 'clear') { tint = 0.96 - g * 0.4; aurora = 0.34 + g * 0.3; }
+  if (backdrop === 'acrylic') { tint = 0.72 - g * 0.45; aurora = 0.22 + g * 0.28; }
   if (backdrop === 'vibrancy') { tint = 0.62 - g * 0.5; aurora = 0.2 + g * 0.26; }
   html.style.setProperty('--tint', tint.toFixed(3));
   html.style.setProperty('--aurora', aurora.toFixed(3));
@@ -278,6 +279,8 @@ function applyPrefs() {
   html.style.setProperty('--a2', a2);
   html.style.setProperty('--a3', a3);
 }
+// Vom Fenster aufgerufen, falls die Windows-Unschärfe nicht verfügbar ist
+window.setBackdrop = (name) => { BOOT.shell.backdrop = name; html.dataset.backdrop = name; if (S.data) applyPrefs(); };
 let prefsTimer = null;
 function setPref(key, value) {
   S.data.prefs[key] = value;
@@ -869,6 +872,7 @@ function renderSettings() {
           <div class="frow"><label>Akzentfarbe</label><div class="swatches">${Object.entries(ACCENTS).map(([name, c]) => `<button class="swatch ${p.accent === name ? 'is-active' : ''}" data-accent="${name}" title="${name}" style="background:linear-gradient(135deg,${c[0]},${c[1]} 55%,${c[2]})"></button>`).join('')}</div></div>
           <div class="frow"><label>Bewegung</label><div><button class="toggle" role="switch" data-pref="motion" aria-checked="${p.motion}"><i class="switch"></i>Animationen</button></div></div>
           <div class="frow desktop-only"><label>Fenster<small>wirkt nach Neustart</small></label><div><button class="toggle" role="switch" data-pref="transparent" aria-checked="${p.transparent}"><i class="switch"></i>durchscheinend</button></div></div>
+          ${BOOT.shell.platform === 'win32' ? `<div class="frow desktop-only"><label>Unschärfe<small>Acrylic, wirkt nach Neustart</small></label><div><button class="toggle" role="switch" data-pref="blur" aria-checked="${p.blur}"><i class="switch"></i>Desktop weichzeichnen</button></div></div>` : ''}
         </section>
         <section class="scard glass" style="margin-top:16px">
           <h3><span class="orb">${icon('i-check')}</span>System</h3><p class="sub">Was die Pipeline auf diesem Rechner vorfindet.</p>
