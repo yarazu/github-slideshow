@@ -1,10 +1,10 @@
 # tiktok-factory
 
-Lokale Pipeline, die aus einer Nische oder einem Thema ein **upload-fertiges TikTok-Video** baut:
+Desktop-App mit durchscheinender Liquid-Glass-Oberfläche (`python app.py`) und Kommandozeile (`python make.py`), die aus einer Nische oder einem Thema ein **upload-fertiges TikTok-Video** bauen:
 
 - 1080 × 1920 (9:16), 30 fps, H.264 + AAC, MP4, **61–90 s** (Ziel 65–75 s – TikTok vergütet erst ab 1 Minute)
 - deutsche KI-Stimme (Azure, optional ElevenLabs) oder deine eigene Aufnahme
-- große animierte Untertitel (1–3 Wörter, aktives Wort gelb) im mittleren Drittel, Hook-Einblendung in Sekunde 0–2
+- große animierte Untertitel (1–3 Wörter, aktives Wort gelb) im mittleren Drittel; der Hook erscheint in Sekunde 0–2 auf einer Milchglas-Karte
 - B-Roll von Pexels (hochkant, kommerziell nutzbar), Bildwechsel alle 2–4 s, leichter Zoom; Fallback: Ken-Burns auf Pexels-Fotos
 - leise Hintergrundmusik aus `assets/music/` (18 dB unter der Stimme), Lautheit auf −14 LUFS normalisiert
 - dazu `cover.jpg`, `beschreibung.txt` (Text + 3–5 Hashtags + KI-Label-Hinweis) und `meta.json` (Quellen, Clips mit Urheber, Dauer …)
@@ -45,10 +45,10 @@ pip install -r requirements.txt
 cp .env.example .env                 # Windows: copy .env.example .env
 ```
 
-Dann die Keys in `.env` eintragen (siehe nächster Abschnitt) und testen:
+Dann die App starten und die Keys unter **Einstellungen** eintragen (Abschnitt 3 erklärt, woher sie kommen):
 
 ```bash
-python make.py --list-niches
+python app.py
 ```
 
 Beim **ersten Video** lädt faster-whisper einmalig das Spracherkennungsmodell (`small`, ca. 500 MB) von huggingface.co nach `cache/whisper/`.
@@ -70,7 +70,47 @@ mp3, wav, m4a, ogg oder flac. Ist ein Ordner leer, nimmt die Pipeline irgendeine
 
 ---
 
-## 2. API-Keys – wo du sie bekommst
+## 2. Desktop-App
+
+```bash
+python app.py            # oder Doppelklick: start-mac.command / start-windows.bat / start-linux.sh
+```
+
+Ein rahmenloses, durchscheinendes Fenster mit vier Bereichen:
+
+| Bereich | Was du dort machst |
+|---|---|
+| **Studio** | Quelle wählen (Nische, Thema, Trend, eigenes Skript), Sprache, Stimme und Musik einstellen, „Video erzeugen“. Rechts zeigt ein Handy den Fortschritt je Schritt und danach das fertige Video. Mehrere Aufträge laufen nacheinander; Abbrechen geht jederzeit. |
+| **Trends** | Die 10 Ideen aus `data/trends.md` mit Quelle und Datum, „Neu recherchieren“ und „Produzieren“ je Idee. |
+| **Bibliothek** | Alle fertigen Videos mit Cover. Ein Klick zeigt Video, Beschreibung und Hashtags zum Kopieren, Hinweise, Quellen mit Erreichbarkeit und die Urheber des Bildmaterials. |
+| **Einstellungen** | API-Keys (landen in `.env`, werden nie im Klartext angezeigt), Stimmen-Anbieter, Modell, Darstellung (Glas-Stärke, Farbschema, Akzentfarbe) und ein Systemcheck (ffmpeg, Schrift, Whisper-Modell, Musik). |
+
+In der Titelleiste: Protokoll, „Immer im Vordergrund“ und das **Mini-Overlay** – eine kleine schwebende Leiste, in die du nur ein Thema tippst und Enter drückst. `Strg/Cmd + 1–4` wechselt die Bereiche, `Esc` schließt Blätter.
+
+### Transparenz je System
+
+| System | Fenster |
+|---|---|
+| macOS | echtes System-Glas: Der Desktop hinter dem Fenster wird unscharf (Vibrancy). |
+| Windows 10/11 | durchscheinendes Fenster über WebView2 (bei Windows 11 vorinstalliert). Der Desktop scheint klar durch; die App tönt selbst ab, damit Text lesbar bleibt. Die Lichtbrechung an den Glaskanten gibt es nur hier und unter Linux (Chromium-Technik). |
+| Linux | durchscheinend, wenn ein Compositor läuft (GNOME, KDE … haben einen). `requirements.txt` installiert dafür die Qt-Variante von pywebview. |
+
+Wie viel durchscheint, regelst du unter *Einstellungen → Darstellung → Glas-Stärke*.
+
+| Option | Bedeutung |
+|---|---|
+| `python app.py --opaque` | deckendes Fenster mit eigenem Farbhintergrund – falls dein System die Transparenz nicht sauber darstellt (schwarze oder weiße Fläche statt Desktop) |
+| `python app.py --browser` | Oberfläche im Standardbrowser statt im App-Fenster (auch automatisch, wenn kein Fenster geöffnet werden kann) |
+| `python app.py --gui qt` | Fenster-Technik von pywebview erzwingen (`qt`, `gtk`, `edgechromium`) |
+| `python app.py --debug` | Entwicklerwerkzeuge und ausführliches Protokoll |
+
+Die App startet einen kleinen Server nur auf `127.0.0.1` mit einem Sitzungs-Token; von außen ist er nicht erreichbar. Fenstergröße unter Windows/Linux: am Griff unten rechts ziehen.
+
+---
+
+## 3. API-Keys – wo du sie bekommst
+
+Am einfachsten in der App unter **Einstellungen** eintragen; sie stehen danach in der Datei `.env`.
 
 | Key in `.env` | Wofür | Wo |
 |---|---|---|
@@ -85,7 +125,9 @@ Grobe Kosten pro Video: Claude ca. 0,10–0,40 $ (inkl. ca. 6 Websuchen à 0,01 
 
 ---
 
-## 3. Bedienung
+## 4. Kommandozeile
+
+Alles, was die App kann, geht auch ohne Fenster:
 
 ```bash
 # 3 Videos aus einer Nische (Claude schlägt neue Themen vor – nichts wiederholt sich)
@@ -147,12 +189,12 @@ Vollständiges Beispiel: [`beispiele/oktopus.json`](beispiele/oktopus.json). Ohn
 
 ---
 
-## 4. Ausgabe
+## 5. Ausgabe
 
 ```
 output/2026-10-27_drei-herzen-blaues-blut/
 ├── video.mp4          upload-fertig
-├── cover.jpg          Titelbild (Titel im 3:4-sicheren Bereich des Profilrasters)
+├── cover.jpg          Titelbild (Titel auf einer Glas-Karte, im 3:4-sicheren Bereich des Profilrasters)
 ├── beschreibung.txt   Beschreibung + Hashtags + Hinweis „KI-Label beim Upload aktivieren“
 └── meta.json          Nische, Hook, Quellen (+ Erreichbarkeitsprüfung), Dauer, Lautheit,
                        Stimme, Musik, alle Clips mit Pexels-Link und Urheber, Hinweise
@@ -162,7 +204,7 @@ output/2026-10-27_drei-herzen-blaues-blut/
 
 ---
 
-## 5. So funktioniert es
+## 6. So funktioniert es
 
 1. **Thema** – aus der Nische (Claude schlägt vor, `data/history.json` verhindert Wiederholungen), aus `data/trends.md` oder per `--topic`.
 2. **Recherche** – Claude sucht per Websuche 6–9 belegbare Fakten mit Quellen-URL.
@@ -170,7 +212,7 @@ output/2026-10-27_drei-herzen-blaues-blut/
 4. **Stimme** – Azure/ElevenLabs/Aufnahme → Dauer messen. Unter 61 s wird das Skript verlängert, über 90 s gekürzt, dann neu vertont.
 5. **Wortzeiten** – faster-whisper hört die fertige Tonspur ab; die Wörter werden mit dem Skript abgeglichen (richtige Schreibweise, Szenenzuordnung).
 6. **B-Roll** – pro Szene Shots à 2–4 s; Suche: eigene Clips in `assets/broll/` → Pexels-Video hochkant → quer (zugeschnitten) → Pexels-Foto (Ken Burns) → Farbfläche.
-7. **Render** – Shots auf 9:16 zuschneiden + leichter Zoom, Untertitel (`.ass`) einbrennen, Musik mischen, 2-Pass-Loudnorm auf −14 LUFS, Endkontrolle mit ffprobe.
+7. **Render** – Shots auf 9:16 zuschneiden + leichter Zoom, Hook-Karte aus Milchglas einblenden (das Video dahinter wird unscharf), Untertitel (`.ass`) einbrennen, Musik mischen, 2-Pass-Loudnorm auf −14 LUFS, Endkontrolle mit ffprobe.
 8. **Texte** – Cover, Beschreibung, `meta.json`; Eintrag in `data/history.json`.
 
 ### Trends
@@ -183,19 +225,23 @@ Lege eigene Videos/Fotos in `assets/broll/` ab und benenne sie mit englischen St
 
 ---
 
-## 6. Anpassen
+## 7. Anpassen
 
 - `config/niches.yaml` – Nischen: Tonalität, Stimme, Musik-Stimmung, Hashtag-Pool, Pexels-Stil, Themenfelder, Regeln
 - `config/settings.yaml` – Untertitel (Schrift, Größe, Farben, Position), Schnitt (2–4 s, Zoom), Lautheit, Musikabstand, Whisper-Modell, Längengrenzen
+- Hook-Einblendung: `subtitles.hook_style: glass` (Milchglas-Karte, Standard) oder `box` (weiße Box); Aussehen der Karte im Abschnitt `glass` (Unschärfe, Tönung, Radius, Schriftgröße)
+- Oberfläche der App: `ui/` (HTML, CSS, JS ohne Build-Schritt)
 - Schrift: Poppins Black (SIL Open Font License, liegt in `assets/fonts/`)
 
 ---
 
-## 7. Fehlerbehebung
+## 8. Fehlerbehebung
 
 | Meldung | Lösung |
 |---|---|
-| `Fehlende Keys in .env: …` | Keys eintragen (Abschnitt 2) |
+| Fenster zeigt eine schwarze/weiße Fläche statt des Desktops | `python app.py --opaque` oder in den Einstellungen „Fenster: durchscheinend“ ausschalten |
+| `Das App-Fenster konnte nicht geöffnet werden` | Die App läuft dann im Browser weiter. Linux: `pip install "pywebview[qt]"`; Windows 10: WebView2-Runtime von Microsoft installieren |
+| `Fehlende Keys in .env: …` / `Es fehlen Schlüssel: …` | Keys eintragen (Abschnitt 3) |
 | `ffmpeg/ffprobe wurde nicht gefunden` | ffmpeg installieren, Terminal neu öffnen |
 | `faster-whisper-Modell … konnte nicht geladen werden` | Internet beim ersten Lauf nötig (huggingface.co); kleineres Modell in `settings.yaml` (`whisper.model: base`) |
 | `Azure Speech: Key ungültig oder Region falsch` | Region muss zur Ressource passen, z. B. `westeurope` |
@@ -213,7 +259,7 @@ python -m pytest
 
 ---
 
-## 8. Grenzen
+## 9. Grenzen
 
 - Kein automatischer Upload, kein Login bei TikTok.
 - Keine geschützte Musik, keine fremden Videos oder Reddit-Posts, keine KI-Nachbildung echter Personen.

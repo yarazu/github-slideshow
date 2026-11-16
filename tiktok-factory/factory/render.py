@@ -4,12 +4,14 @@ from __future__ import annotations
 import logging
 import os
 import random
+from collections.abc import Callable
 from pathlib import Path
 
 from . import media
 from .broll import Shot
 from .config import Config
 from .errors import RenderError
+from .overlay import GlassCard
 
 log = logging.getLogger(__name__)
 
@@ -68,13 +70,16 @@ def render_shot(shot: Shot, out: Path, cfg: Config, *, loop: bool = False) -> Pa
     return out
 
 
-def render_shots(shots: list[Shot], work_dir: Path, cfg: Config) -> Path:
+def render_shots(shots: list[Shot], work_dir: Path, cfg: Config,
+                 on_step: Callable[[float, str], None] | None = None) -> Path:
     """Rendert alle Shots und schreibt die Concat-Liste. Gibt den Pfad der Liste zurück."""
     lines = []
-    for shot in shots:
+    for n, shot in enumerate(shots, 1):
         out = work_dir / f"shot_{shot.index:03d}.mp4"
         render_shot(shot, out, cfg)
         lines.append(f"file '{out.name}'")
+        if on_step:
+            on_step(n / len(shots), f"Shot {n} von {len(shots)}")
     concat = work_dir / "shots.txt"
     concat.write_text("\n".join(lines) + "\n", encoding="utf-8")
     log.info("%d Shots gerendert", len(shots))
@@ -147,14 +152,37 @@ def build_audio(voice: Path, music: Path | None, total: float, work_dir: Path, c
 # --------------------------------------------------------------------------------------
 # Endvideo
 # --------------------------------------------------------------------------------------
-def final_render(concat_list: Path, audio: Path, ass_file: Path, out: Path, total: float, cfg: Config) -> Path:
+def final_render(concat_list: Path, audio: Path, ass_file: Path, out: Path, total: float, cfg: Config, *,
+                 card: GlassCard | None = None, card_seconds: float = 2.0,
+                 on_progress: Callable[[float], None] | None = None) -> Path:
+    """Shots + Ton zusammenführen, Untertitel einbrennen – optional mit Glas-Karte (Hook) am Anfang."""
     work_dir = concat_list.parent
     fonts = os.path.relpath(cfg.paths.fonts, work_dir).replace(os.sep, "/")
+    subtitles = f"ass={ass_file.name}:fontsdir={fonts}"
+    inputs = ["-f", "concat", "-safe", "0", "-i", concat_list.name, "-i", audio.name]
+    if card is None:
+        graph = f"[0:v]{subtitles}[v]"
+    else:
+        panel, mask = card.save(work_dir)
+        end = min(card_seconds, total)
+        still = ["-loop", "1", "-framerate", cfg.video.fps, "-t", f"{end:.3f}"]
+        inputs += [*still, "-i", mask.name, *still, "-i", panel.name]
+        fade = f"fade=t=in:st=0:d=0.14:alpha=1,fade=t=out:st={max(0.0, end - 0.24):.3f}:d=0.24:alpha=1"
+        graph = (
+            # Video hinter der Karte unscharf + kräftiger, in Kartenform ausschneiden
+            f"[0:v]split=2[base][pre];"
+            f"[pre]trim=end={end:.3f},setpts=PTS-STARTPTS,crop={card.w}:{card.h}:{card.x}:{card.y},"
+            f"gblur=sigma={cfg.glass.blur},eq=saturation=1.35[soft];"
+            f"[2:v]format=gray[mask];[soft][mask]alphamerge,{fade}[frost];"
+            f"[base][frost]overlay={card.x}:{card.y}:eof_action=pass[v1];"
+            # Glaskörper (Tönung, Lichtkante, Text) darüber
+            f"[3:v]format=rgba,{fade}[panel];"
+            f"[v1][panel]overlay={card.x - card.pad}:{card.y - card.pad}:eof_action=pass[v2];"
+            f"[v2]{subtitles}[v]"
+        )
     args = [
-        "-f", "concat", "-safe", "0", "-i", concat_list.name,
-        "-i", audio.name,
-        "-map", "0:v:0", "-map", "1:a:0",
-        "-vf", f"ass={ass_file.name}:fontsdir={fonts}",
+        *inputs,
+        "-filter_complex", graph, "-map", "[v]", "-map", "1:a:0",
         "-c:v", "libx264", "-preset", cfg.video.preset, "-crf", cfg.video.crf,
         "-profile:v", "high", "-level:v", "4.1", "-pix_fmt", "yuv420p", "-r", cfg.video.fps,
         "-g", cfg.video.fps * 2,
@@ -162,7 +190,8 @@ def final_render(concat_list: Path, audio: Path, ass_file: Path, out: Path, tota
         "-t", f"{total:.3f}", "-movflags", "+faststart",
         out.resolve(),
     ]
-    media.run_ffmpeg(args, "Endvideo rendern", cwd=work_dir)
+    media.run_ffmpeg(args, "Endvideo rendern", cwd=work_dir,
+                     on_progress=(lambda sec: on_progress(min(1.0, sec / total))) if on_progress else None)
     return out
 
 

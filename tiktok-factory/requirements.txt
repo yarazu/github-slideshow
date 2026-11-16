@@ -6,5 +6,8 @@ requests>=2.31
 Pillow>=10.0
 # Untertitel (Wort-Zeitstempel, lokal)
 faster-whisper>=1.1
+# Desktop-App (Fenster). Unter Linux bringt die Qt-Variante alles Nötige mit.
+pywebview>=5.3; sys_platform != "linux"
+pywebview[qt]>=5.3; sys_platform == "linux"
 # Tests
 pytest>=8.0

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """tiktok-factory – erzeugt upload-fertige TikTok-Videos aus einer Nische oder einem Thema.
 
+Kommandozeile der Pipeline. Die Desktop-App startest du mit:  python app.py
+
 Beispiele:
   python make.py --niche psychologie --count 3
   python make.py --topic "Warum wir Träume sofort vergessen"
@@ -21,9 +23,10 @@ from factory.history import History
 from factory.llm import api_key
 from factory.log import setup_logging
 from factory.media import check_ffmpeg
-from factory.pipeline import Job, Options, Pipeline, niche_for_trend
-from factory.script import load_script_file, propose_topics
-from factory.trends import is_stale, parse_trends, pick_trends, refresh_trends
+from factory.pipeline import Job, Options, Pipeline
+from factory.planner import niche_jobs, script_job, topic_job, trend_jobs
+from factory.script import load_script_file
+from factory.trends import parse_trends, refresh_trends
 from factory.tts import required_keys
 
 log = logging.getLogger("make")
@@ -91,34 +94,12 @@ def preflight(cfg: Config, args: argparse.Namespace, needs_llm: bool) -> None:
 
 def build_jobs(cfg: Config, args: argparse.Namespace, pipeline: Pipeline, history: History) -> list[Job]:
     if args.script_file:
-        script = load_script_file(args.script_file)
-        niche = cfg.niche(args.niche or cfg.script.default_niche)
-        return [Job(niche=niche, topic=script.titel, script=script, lang=args.lang)]
+        return [script_job(cfg, load_script_file(args.script_file), args.niche, args.lang)]
     if args.topic:
-        niche = cfg.niche(args.niche or cfg.script.default_niche)
-        dup = history.find_duplicate(args.topic)
-        if dup:
-            log.warning("Ähnliches Thema gab es schon: „%s“ – wird trotzdem produziert (neuer Winkel).", dup)
-        return [Job(niche=niche, topic=args.topic, lang=args.lang)]
-
-    niche = cfg.niche(args.niche)
-    if niche.key == "trend":
-        trends_md = cfg.paths.data / "trends.md"
-        if is_stale(trends_md, cfg.trends.max_age_hours):
-            log.info("data/trends.md ist älter als %s h – neue Trend-Recherche …", cfg.trends.max_age_hours)
-            refresh_trends(pipeline.llm, cfg, trends_md)
-        ideas = pick_trends(trends_md, history, args.count)
-        if not ideas:
-            raise ConfigError("Keine offenen Trend-Ideen in data/trends.md – `python make.py --refresh-trends`.")
-        if len(ideas) < args.count:
-            log.warning("Nur %d offene Trend-Ideen verfügbar.", len(ideas))
-        return [Job(niche=niche_for_trend(cfg, i), topic=i.thema, angle=i.warum_jetzt, trend=i, lang=args.lang)
-                for i in ideas]
-
-    ideas = propose_topics(pipeline.llm, cfg, niche, history, args.count, args.lang)
-    for i in ideas:
-        log.info("Thema: %s – %s", i["thema"], i["winkel"])
-    return [Job(niche=niche, topic=i["thema"], angle=i["winkel"], lang=args.lang) for i in ideas]
+        return [topic_job(cfg, history, args.topic, args.niche, args.lang)]
+    if cfg.niche(args.niche).key == "trend":
+        return trend_jobs(cfg, history, lambda: pipeline.llm, args.count, args.lang)
+    return niche_jobs(cfg, history, pipeline.llm, args.niche, args.count, args.lang)
 
 
 def main(argv: list[str] | None = None) -> int:

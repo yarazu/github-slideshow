@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="de" data-theme="dark" data-backdrop="opaque" data-platform="linux" data-mode="browser">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TikTok Factory</title>
+<link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+<script id="boot" type="application/json">__BOOT__</script>
+
+<!-- Symbole (eigene Strichzeichnungen, 24 × 24) und Filter -->
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="grad-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="var(--a1)"/><stop offset=".52" stop-color="var(--a2)"/><stop offset="1" stop-color="var(--a3)"/>
+    </linearGradient>
+  </defs>
+  <symbol id="i-studio" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h8M16 6h4M4 12h3M11 12h9M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/></symbol>
+  <symbol id="i-min" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-max" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="3"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.2v.3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></symbol>
+  <symbol id="i-log" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3.5"/><path d="M7 10l3 2.5L7 15M12.5 15H17"/></symbol>
+  <symbol id="i-compact" viewBox="0 0 24 24"><path d="M4 9V6a2 2 0 0 1 2-2h3M20 15v3a2 2 0 0 1-2 2h-3"/><rect x="8" y="9" width="8" height="6" rx="2"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8"/><path d="M11 7H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l1.5 1.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-hash" viewBox="0 0 24 24"><path d="M9 4L7 20M17 4l-2 16M4 9h17M3 15h17"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <!-- Nischen -->
+  <symbol id="n-psychologie" viewBox="0 0 24 24"><path d="M12 6.5V20M9 4.5a3 3 0 0 0-3 3 3 3 0 0 0-1.6 5 3 3 0 0 0 1.6 5 3 3 0 0 0 6-.5M15 4.5a3 3 0 0 1 3 3 3 3 0 0 1 1.6 5 3 3 0 0 1-1.6 5 3 3 0 0 1-6-.5M9 4.5a3 3 0 0 1 3 2 3 3 0 0 1 3-2"/></symbol>
+  <symbol id="n-geschichte" viewBox="0 0 24 24"><path d="M4 9l8-5 8 5M5 9h14M7 9v8M12 9v8M17 9v8M5 17h14M4 20h16"/></symbol>
+  <symbol id="n-weltraum" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M3.2 15.5c1.8 2.6 16.400-2.200 17.600-7"/><path d="M19 4.200v2M18 5.200h2"/></symbol>
+  <symbol id="n-tiere" viewBox="0 0 24 24"><circle cx="7" cy="10" r="1.800"/><circle cx="12" cy="7.300" r="1.800"/><circle cx="17" cy="10" r="1.800"/><path d="M8.300 16.600c0-2.300 1.700-4.200 3.700-4.200s3.700 1.900 3.700 4.200c0 1.500-1.300 2.400-3.700 2.400s-3.700-.9-3.700-2.400z"/></symbol>
+  <symbol id="n-wusstestdu" viewBox="0 0 24 24"><path d="M9.500 17h5M10.500 20h3M12 3a6 6 0 0 0-3.600 10.800c.6.500 1 1.200 1.100 2.200h5c.1-1 .5-1.700 1.100-2.200A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="n-stoizismus" viewBox="0 0 24 24"><path d="M3 19l6-9 4 6 3-4 5 7z"/><circle cx="17" cy="6.500" r="2"/></symbol>
+  <symbol id="n-geld" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.500"/><path d="M14.600 9.300c-.6-.8-1.500-1.200-2.600-1.200-1.500 0-2.600.8-2.600 2s1 1.700 2.600 2 2.700.8 2.700 2-1.100 2-2.700 2c-1.100 0-2.100-.4-2.700-1.200M12 6.200v11.600"/></symbol>
+  <symbol id="n-technik" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2.500"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></symbol>
+  <symbol id="n-trend" viewBox="0 0 24 24"><path d="M12 3c1 3.500 5 5 5 9.500a5 5 0 0 1-10 0c0-1.800.8-3 1.800-4 .2 1.500 1 2.500 2 2.500 0-3 .200-5.500 1.200-8z"/></symbol>
+</svg>
+
+<div class="shell" id="shell">
+  <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar" id="topbar">
+    <div class="drag pywebview-drag-region" id="drag"></div>
+
+    <div class="capsule bar-left">
+      <div class="traffic" id="traffic" hidden>
+        <button class="t-close" data-win="close" title="Schließen" aria-label="Schließen"></button>
+        <button class="t-min" data-win="minimize" title="Minimieren" aria-label="Minimieren"></button>
+        <button class="t-max" data-win="maximize" title="Vergrößern" aria-label="Vergrößern"></button>
+      </div>
+      <div class="brand pywebview-drag-region">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8.500 5.500v13l11-6.500z"/></svg></span>
+        <span class="brand-name">Factory</span>
+      </div>
+    </div>
+
+    <nav class="capsule seg nav" id="nav" aria-label="Bereiche">
+      <span class="seg-thumb" aria-hidden="true"></span>
+      <button data-value="studio"><svg class="ico"><use href="#i-studio"/></svg><span>Studio</span></button>
+      <button data-value="trends"><svg class="ico"><use href="#i-trend"/></svg><span>Trends</span></button>
+      <button data-value="library"><svg class="ico"><use href="#i-grid"/></svg><span>Bibliothek</span></button>
+      <button data-value="settings"><svg class="ico"><use href="#i-sliders"/></svg><span>Einstellungen</span></button>
+    </nav>
+
+    <div class="capsule bar-right">
+      <button class="status" id="status" title="Protokoll anzeigen"><i class="dot"></i><span id="status-text">Bereit</span></button>
+      <button class="icon-btn" id="btn-log" title="Protokoll" aria-label="Protokoll"><svg class="ico"><use href="#i-log"/></svg></button>
+      <button class="icon-btn desktop-only" id="btn-pin" title="Immer im Vordergrund" aria-label="Immer im Vordergrund" aria-pressed="false"><svg class="ico"><use href="#i-pin"/></svg></button>
+      <button class="icon-btn" id="btn-compact" title="Mini-Overlay" aria-label="Mini-Overlay"><svg class="ico"><use href="#i-compact"/></svg></button>
+      <span class="win-controls desktop-only" id="win-controls">
+        <button class="icon-btn" data-win="minimize" title="Minimieren" aria-label="Minimieren"><svg class="ico"><use href="#i-min"/></svg></button>
+        <button class="icon-btn" data-win="maximize" title="Vergrößern" aria-label="Vergrößern"><svg class="ico"><use href="#i-max"/></svg></button>
+        <button class="icon-btn win-close" data-win="close" title="Schließen" aria-label="Schließen"><svg class="ico"><use href="#i-close"/></svg></button>
+      </span>
+    </div>
+  </header>
+
+  <main class="views" id="views">
+    <section class="view view-studio" id="view-studio" data-view="studio"></section>
+    <section class="view view-scroll" id="view-trends" data-view="trends" hidden></section>
+    <section class="view view-scroll" id="view-library" data-view="library" hidden></section>
+    <section class="view view-scroll" id="view-settings" data-view="settings" hidden></section>
+  </main>
+
+  <!-- Mini-Overlay -->
+  <section class="compact" id="compact" hidden></section>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="sheet glass" id="sheet" hidden aria-modal="true" role="dialog"></aside>
+  <aside class="logdrawer glass" id="logdrawer" hidden>
+    <header>
+      <strong>Protokoll</strong>
+      <span class="spacer"></span>
+      <button class="btn btn-small" id="log-copy"><svg class="ico"><use href="#i-copy"/></svg>Kopieren</button>
+      <button class="icon-btn" id="log-close" aria-label="Schließen"><svg class="ico"><use href="#i-close"/></svg></button>
+    </header>
+    <pre class="log selectable" id="log"></pre>
+  </aside>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="resize-grip desktop-only" id="resize-grip" title="Größe ändern"></div>
+</div>
+
+<script type="module" src="/ui/app.js"></script>
+</body>
+</html>

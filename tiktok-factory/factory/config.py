@@ -89,6 +89,13 @@ class Niche:
         return self.stimme_en if lang == "en" else self.stimme
 
 
+# Werte, die in älteren settings.yaml fehlen dürfen
+_DEFAULTS: dict[str, dict] = {
+    "subtitles": {"hook_style": "glass"},
+    "glass": {"font_px": 88, "radius": 60, "padding_x": 58, "padding_y": 44, "margin": 70, "blur": 28,
+              "tint": "#0E1118", "tint_opacity": 0.34, "text_color": "#FFFFFF"},
+}
+
 _NICHE_FIELDS = ("name", "tonalitaet", "stimme", "stimme_en", "musik_stimmung", "hashtags", "pexels_stil")
 
 
@@ -127,7 +134,11 @@ class Config:
         for section in ("video", "duration", "audio", "subtitles", "whisper", "script", "broll", "trends"):
             if section not in settings:
                 raise ConfigError(f"settings.yaml: Abschnitt '{section}' fehlt.")
-            setattr(self, section, _namespace(settings[section]))
+        for section, defaults in _DEFAULTS.items():  # später hinzugekommene Einstellungen
+            settings[section] = {**defaults, **(settings.get(section) or {})}
+        for section, values in settings.items():
+            if isinstance(values, dict):
+                setattr(self, section, _namespace(values))
         self.niches = _parse_niches(_load_yaml(self.paths.config / "niches.yaml"))
 
     # --- .env -----------------------------------------------------------------

@@ -11,6 +11,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -220,9 +221,11 @@ class BrollFinder:
             log.warning("PEXELS_API_KEY fehlt – nur eigene Clips aus assets/broll/ und Farbflächen.")
         self.missing: list[int] = []
 
-    def fill(self, shots: list[Shot]) -> None:
-        for shot in shots:
+    def fill(self, shots: list[Shot], on_step: Callable[[float, str], None] | None = None) -> None:
+        for n, shot in enumerate(shots, 1):
             shot.media = self._find(shot)
+            if on_step:
+                on_step(n / len(shots), f"Clip {n} von {len(shots)}")
             if shot.media.media_id:
                 self.used.add(shot.media.media_id)
             if shot.media.kind == "color":
@@ -290,11 +293,12 @@ class BrollFinder:
         return None
 
 
-def find_broll(shots: list[Shot], cfg: Config, niche: Niche, recent_ids: set[str]) -> list[int]:
+def find_broll(shots: list[Shot], cfg: Config, niche: Niche, recent_ids: set[str],
+               on_step: Callable[[float, str], None] | None = None) -> list[int]:
     """Füllt shot.media für alle Shots. Gibt die Indizes ohne passendes Material zurück."""
     finder = BrollFinder(cfg, niche, recent_ids)
     try:
-        finder.fill(shots)
+        finder.fill(shots, on_step)
     except FactoryError:
         raise
     except Exception as exc:  # unerwartete API-Antworten

@@ -16,6 +16,8 @@ from .cover import make_cover
 from .errors import ConfigError, ScriptError
 from .history import History
 from .llm import LLM, Research, api_key
+from .overlay import text_card
+from .progress import Progress
 from .render import build_audio, choose_music, extract_frame, final_render, render_shots, verify_video
 from .script import (Script, check_sources, ensure_hashtags, research_topic, revise_for_duration, validate,
                      write_script)
@@ -53,10 +55,11 @@ class Options:
 
 
 class Pipeline:
-    def __init__(self, cfg: Config, history: History, options: Options):
+    def __init__(self, cfg: Config, history: History, options: Options, progress: Progress | None = None):
         self.cfg = cfg
         self.history = history
         self.opt = options
+        self.progress = progress or Progress()
         self._llm: LLM | None = None
 
     @property
@@ -79,6 +82,7 @@ class Pipeline:
             return job.script, None
         research = None
         if self.opt.web_search:
+            self.progress.stage("recherche", "Fakten und Quellen per Websuche")
             log.info("Recherche per Websuche: %s", job.topic)
             research = research_topic(self.llm, self.cfg, job.topic, job.angle, job.niche)
         trend_note = ""
@@ -86,6 +90,7 @@ class Pipeline:
             trend_note = (f"Aktueller Anlass: {job.trend.warum_jetzt} (Quelle: {job.trend.quelle}, {job.trend.datum}). "
                           "Greife den Anlass im Hook oder im ersten Satz auf; der Kern sind zeitlose, "
                           "überprüfbare Fakten.")
+        self.progress.stage("skript", "Hook, Szenen und Quellen")
         log.info("Skript schreiben: %s", job.topic)
         script = write_script(self.llm, self.cfg, topic=job.topic, angle=job.angle, niche=job.niche,
                               research=research, history=self.history, lang=job.lang, trend_note=trend_note)
@@ -107,6 +112,7 @@ class Pipeline:
         d, pad = self.cfg.duration, self.cfg.video.end_padding
         rate = 0
         for round_no in range(d.max_rounds + 1):
+            self.progress.stage("stimme", voice.describe() if round_no == 0 else f"Neuvertonung {round_no}")
             wav = voice.synthesize(script.narration, work, job.lang, rate)
             spoken = media.duration(wav)
             total = spoken + pad
@@ -161,27 +167,39 @@ class Pipeline:
         script, wav, spoken = self._voice(job, script, voice, research, work)
         total = min(spoken + cfg.video.end_padding, cfg.duration.max_hard)
 
+        self.progress.stage("timing", "faster-whisper hört die Tonspur ab" if self.opt.whisper else "geschätzt")
         display_words, timed_words, timing = word_timings(wav, script, cfg, job.lang, use_whisper=self.opt.whisper)
         spans = scene_spans(timed_words, total)
         shots = plan_shots(spans, script, job.niche, cfg)
         log.info("%d Szenen → %d Shots (Ø %.1f s)", len(spans), len(shots), total / len(shots))
 
-        missing = find_broll(shots, cfg, job.niche, self.history.used_media_ids(cfg.broll.avoid_recent_videos))
-        concat = render_shots(shots, work, cfg)
+        self.progress.stage("broll", f"{len(shots)} Clips suchen")
+        missing = find_broll(shots, cfg, job.niche, self.history.used_media_ids(cfg.broll.avoid_recent_videos),
+                             on_step=self.progress.step)
+        self.progress.stage("schnitt", f"{len(shots)} Shots zuschneiden")
+        concat = render_shots(shots, work, cfg, on_step=self.progress.step)
 
+        self.progress.stage("ton", "Musik mischen, Lautheit normalisieren")
         rng = random.Random(slug)
         music = None
         if self.opt.music:
             music = choose_music(cfg, job.niche.musik_stimmung, self.history.recent_music(), rng)
         audio = build_audio(wav, music, total, work, cfg, rng)
 
+        self.progress.stage("render", "Untertitel einbrennen")
+        hook_text = script.hook_overlay or script.hook
+        card = None
+        if cfg.subtitles.hook_style == "glass":  # Milchglas-Karte statt weißer Box
+            card = text_card(hook_text, cfg, center_y=cfg.subtitles.hook_position_y)
         ass = work / "untertitel.ass"
-        ass.write_text(build_ass(display_words, cfg, hook_text=script.hook_overlay or script.hook, total=total),
+        ass.write_text(build_ass(display_words, cfg, hook_text="" if card else hook_text, total=total),
                        encoding="utf-8")
-        video = final_render(concat, audio["datei"], ass, out_dir / "video.mp4", total, cfg)
+        video = final_render(concat, audio["datei"], ass, out_dir / "video.mp4", total, cfg, card=card,
+                             card_seconds=cfg.subtitles.hook_duration, on_progress=self.progress.step)
         check = verify_video(video, cfg)
         log.info("Video fertig: %.1f s, %s MB", check["dauer_s"], check["groesse_mb"])
 
+        self.progress.stage("abschluss", "Cover, Beschreibung, Quellen prüfen")
         frame = extract_frame(work / "shot_000.mp4", min(shots[0].duration * 0.5, 1.0), work / "cover_frame.jpg")
         make_cover(frame, script.titel, out_dir / "cover.jpg", cfg)
         (out_dir / "beschreibung.txt").write_text(self._description(script), encoding="utf-8")
@@ -226,6 +244,7 @@ class Pipeline:
         return (f"{script.beschreibung}\n\n{' '.join(script.hashtags)}\n\n---\n{KI_HINWEIS}\n")
 
     def _write_script_only(self, out_dir: Path, script: Script, research: Research | None) -> Path:
+        self.progress.stage("abschluss", "Skript speichern")
         (out_dir / "skript.json").write_text(json.dumps(script.to_dict(), ensure_ascii=False, indent=2) + "\n",
                                             encoding="utf-8")
         lines = [script.hook, ""] + [s.text for s in script.szenen]

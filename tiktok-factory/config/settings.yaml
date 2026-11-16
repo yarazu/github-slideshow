@@ -41,11 +41,23 @@ subtitles:
   max_chars: 15
   max_width: 900                   # px – rechts liegt die TikTok-Buttonleiste
   position_y: 1080                 # Mitte der Untertitel (mittleres Drittel: 640–1280)
-  hook_font_size: 140
+  hook_style: glass                # glass = Milchglas-Karte (Liquid Glass) | box = weiße Box
   hook_position_y: 470
   hook_duration: 2.0
-  hook_box_color: "#FFFFFF"
-  hook_text_color: "#000000"
+  hook_font_size: 140              # nur für hook_style: box
+  hook_box_color: "#FFFFFF"        # nur für hook_style: box
+  hook_text_color: "#000000"       # nur für hook_style: box
+
+glass:                             # Aussehen der Glas-Karten (Hook-Einblendung und Cover)
+  font_px: 88
+  radius: 60
+  padding_x: 58
+  padding_y: 44
+  margin: 70                       # Mindestabstand zum Bildrand
+  blur: 28                         # Unschärfe des Videos hinter dem Glas
+  tint: "#0E1118"
+  tint_opacity: 0.34               # 0 = klares Glas, 1 = deckend
+  text_color: "#FFFFFF"
 
 whisper:
   model: small          # tiny | base | small | medium | large-v3

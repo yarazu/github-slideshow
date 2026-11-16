@@ -27,3 +27,7 @@ class BrollError(FactoryError):
 
 class RenderError(FactoryError):
     """ffmpeg-Verarbeitung fehlgeschlagen."""
+
+
+class Cancelled(FactoryError):
+    """Vom Nutzer abgebrochen (Desktop-App)."""

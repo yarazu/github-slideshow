@@ -7,9 +7,12 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
-from .errors import ConfigError, RenderError
+from .errors import Cancelled, ConfigError, RenderError
 
 log = logging.getLogger(__name__)
 
@@ -19,40 +22,92 @@ INSTALL_HINT = """ffmpeg/ffprobe wurde nicht gefunden. So installierst du es:
   Ubuntu/Debian:  sudo apt install ffmpeg
 Prüfen mit:       ffmpeg -version"""
 
-REQUIRED_FILTERS = ("ass", "zoompan", "loudnorm", "amix", "gradients")
+REQUIRED_FILTERS = ("ass", "zoompan", "loudnorm", "amix", "gradients", "gblur", "alphamerge", "overlay")
+
+# Unter Windows öffnet sonst jeder ffmpeg-Aufruf aus der App ein Konsolenfenster.
+_NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
 
 
 def check_ffmpeg() -> str:
     """Prüft, ob ffmpeg mit allen benötigten Filtern installiert ist. Gibt die Version zurück."""
     if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
         raise ConfigError(INSTALL_HINT)
-    version = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True).stdout.split("\n")[0]
-    filters = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    version = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, **_NO_WINDOW).stdout.split("\n")[0]
+    filters = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True, **_NO_WINDOW).stdout
     missing = [f for f in REQUIRED_FILTERS if not re.search(rf"^\s*\S+\s+{f}\s", filters, re.M)]
     if missing:
         raise ConfigError(
             f"Dein ffmpeg kann folgende Filter nicht: {', '.join(missing)}. "
             "Bitte ein vollständiges Build installieren (mit libass und libx264).\n" + INSTALL_HINT)
-    encoders = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True).stdout
+    encoders = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True, **_NO_WINDOW).stdout
     if "libx264" not in encoders:
         raise ConfigError("Dein ffmpeg hat keinen H.264-Encoder (libx264).\n" + INSTALL_HINT)
     return version
 
 
-def run_ffmpeg(args: list[str], what: str, *, cwd: Path | None = None,
-               loglevel: str = "error") -> subprocess.CompletedProcess:
-    cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-loglevel", loglevel, *map(str, args)]
+_cancel = threading.Event()
+_proc_lock = threading.Lock()
+_current: subprocess.Popen | None = None
+
+
+def request_cancel() -> None:
+    """Bricht den laufenden ffmpeg-Aufruf ab; die Pipeline endet an der nächsten Prüfstelle."""
+    _cancel.set()
+    with _proc_lock:
+        proc = _current
+    if proc is not None and proc.poll() is None:
+        proc.terminate()
+
+
+def clear_cancel() -> None:
+    _cancel.clear()
+
+
+def check_cancel() -> None:
+    if _cancel.is_set():
+        raise Cancelled("Abgebrochen.")
+
+
+def run_ffmpeg(args: list, what: str, *, cwd: Path | None = None, loglevel: str = "error",
+               on_progress: Callable[[float], None] | None = None) -> subprocess.CompletedProcess:
+    """Führt ffmpeg aus. on_progress bekommt laufend die bereits erzeugte Ausgabezeit in Sekunden."""
+    global _current
+    check_cancel()
+    progress_args = ["-progress", "pipe:1", "-nostats"] if on_progress else []
+    cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-loglevel", loglevel, *progress_args, *map(str, args)]
     log.debug("ffmpeg [%s]: %s", what, shlex.join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                            errors="replace", cwd=cwd, **_NO_WINDOW)
+    with _proc_lock:
+        _current = proc
+    try:
+        if on_progress:
+            errors: list[str] = []
+            reader = threading.Thread(target=lambda: errors.append(proc.stderr.read()), daemon=True)
+            reader.start()
+            for line in proc.stdout:
+                key, _, value = line.strip().partition("=")
+                if key == "out_time_us" and value.lstrip("-").isdigit():
+                    on_progress(max(0, int(value)) / 1e6)
+            proc.wait()
+            reader.join()
+            stdout, stderr = "", "".join(errors)
+        else:
+            stdout, stderr = proc.communicate()
+    finally:
+        with _proc_lock:
+            _current = None
+    if _cancel.is_set():
+        raise Cancelled("Abgebrochen.")
     if proc.returncode != 0:
-        tail = "\n".join(proc.stderr.strip().splitlines()[-12:])
+        tail = "\n".join(stderr.strip().splitlines()[-12:])
         raise RenderError(f"ffmpeg-Fehler bei „{what}“:\n{tail}")
-    return proc
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
 def probe(path: Path) -> dict:
     cmd = ["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", str(path)]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", **_NO_WINDOW)
     if proc.returncode != 0:
         raise RenderError(f"ffprobe kann {path.name} nicht lesen: {proc.stderr.strip()[-300:]}")
     return json.loads(proc.stdout)

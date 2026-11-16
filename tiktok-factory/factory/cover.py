@@ -1,20 +1,38 @@
-"""Cover-Bild: stärkstes Eröffnungsbild + großer Titel (im 3:4-sicheren Bereich des Profilrasters)."""
+"""Cover-Bild: stärkstes Eröffnungsbild + Titel (im 3:4-sicheren Bereich des Profilrasters)."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from .config import Config
+from .overlay import composite, text_card
 from .utils import balance_lines
 
 
 def make_cover(frame: Path, title: str, out: Path, cfg: Config) -> Path:
     W, H = cfg.video.width, cfg.video.height
-    img = Image.open(frame).convert("RGB").resize((W, H))
-    img = img.filter(ImageFilter.GaussianBlur(1.2))
+    img = Image.open(frame).convert("RGB").resize((W, H), Image.LANCZOS)
+    if cfg.subtitles.hook_style == "glass":
+        img = _glass_cover(img, title, cfg)
+    else:
+        img = _classic_cover(img, title, cfg)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out, "JPEG", quality=92, optimize=True)
+    return out
 
-    # Abdunkeln zur Mitte hin, damit der Titel immer lesbar ist
+
+def _glass_cover(img: Image.Image, title: str, cfg: Config) -> Image.Image:
+    """Titel auf einer Milchglas-Karte; das Bild dahinter bleibt erkennbar."""
+    img = ImageEnhance.Brightness(img).enhance(0.9)
+    card = text_card(title, cfg, center_y=int(cfg.video.height * 0.47), font_px=round(cfg.glass.font_px * 1.32))
+    return composite(img, card, cfg.glass.blur)
+
+
+def _classic_cover(img: Image.Image, title: str, cfg: Config) -> Image.Image:
+    """Weißer Titel mit schwarzem Rand auf abgedunkeltem Bild."""
+    W, H = img.size
+    img = img.filter(ImageFilter.GaussianBlur(1.2))
     shade = Image.new("L", (W, H), 0)
     sd = ImageDraw.Draw(shade)
     for y in range(H):
@@ -42,6 +60,4 @@ def make_cover(frame: Path, title: str, out: Path, cfg: Config) -> Path:
         draw.text((W / 2, y), line, font=font, fill=fill, anchor="ma", stroke_width=max(6, size // 14),
                   stroke_fill="#000000")
         y += line_h
-    out.parent.mkdir(parents=True, exist_ok=True)
-    img.save(out, "JPEG", quality=92, optimize=True)
-    return out
+    return img
