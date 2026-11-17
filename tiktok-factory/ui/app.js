@@ -500,7 +500,8 @@ function updateCta() {
   if (!scriptOnly) {
     if (f.mode === 'script' && f.voiceUpload) chips.push(['Aufnahme', '', 'eigene Stimme']);
     else chips.push(['Stimme', sys.voice_ready ? '' : 'bad', sys.voice_ready ? sys.tts_provider : `Schlüssel für ${sys.tts_provider} fehlt`]);
-    chips.push(['B-Roll', sys.keys.pexels ? '' : 'warn', sys.keys.pexels ? 'Pexels' : 'ohne PEXELS_API_KEY nur Farbflächen']);
+    const stock = [sys.keys.pexels && 'Pexels', sys.keys.pixabay && 'Pixabay'].filter(Boolean).join(' + ');
+    chips.push(['B-Roll', stock ? '' : 'warn', stock || 'ohne Pixabay- oder Pexels-Schlüssel nur Farbflächen']);
     if (!sys.ffmpeg.ok) chips.push(['ffmpeg', 'bad', 'ffmpeg fehlt']);
   }
   $('#ready').innerHTML = chips.map(([label, state, tip]) => `<button class="chip" data-goto="settings" title="${esc(tip)}"><i class="dot ${state}"></i>${label}</button>`).join('');
@@ -881,7 +882,8 @@ function closeSheet() {
 const KEY_ROWS = [
   ['ANTHROPIC_API_KEY', 'Claude', 'Skripte, Themen, Trends', 'https://console.anthropic.com/settings/keys'],
   ['AZURE_SPEECH_KEY', 'Azure AI Speech', 'Standard-Stimme', 'https://portal.azure.com'],
-  ['PEXELS_API_KEY', 'Pexels', 'B-Roll-Clips und Fotos', 'https://www.pexels.com/api/'],
+  ['PIXABAY_API_KEY', 'Pixabay', 'B-Roll-Clips und Fotos', 'https://pixabay.com/api/docs/'],
+  ['PEXELS_API_KEY', 'Pexels', 'optional – neue Schlüssel derzeit pausiert', 'https://www.pexels.com/api/'],
   ['ELEVENLABS_API_KEY', 'ElevenLabs', 'optionale Stimme', 'https://elevenlabs.io/app/settings/api-keys'],
 ];
 
@@ -902,9 +904,9 @@ function renderSettings() {
           <h3><span class="orb">${icon('i-key')}</span>Schlüssel</h3><p class="sub">Leere Felder bleiben unverändert.</p>
           ${KEY_ROWS.map(([name, label, hint, url]) => `<div class="frow"><label>${label}<small>${hint}</small></label><div>
               <label class="field"><input type="password" data-setting="${name}" placeholder="${st[name].set ? `gespeichert ${esc(st[name].hint)}` : 'Schlüssel einfügen'}" autocomplete="off" spellcheck="false"></label>
-              <div class="keymeta"><i class="dot ${st[name].set ? '' : (name === 'ELEVENLABS_API_KEY' ? 'off' : 'bad')}"></i>${st[name].set ? 'vorhanden' : (name === 'ELEVENLABS_API_KEY' ? 'nicht gesetzt (optional)' : 'fehlt')}
+              <div class="keymeta"><i class="dot ${st[name].set ? '' : (['ELEVENLABS_API_KEY', 'PEXELS_API_KEY'].includes(name) ? 'off' : 'bad')}"></i>${st[name].set ? 'vorhanden' : (['ELEVENLABS_API_KEY', 'PEXELS_API_KEY'].includes(name) ? 'nicht gesetzt (optional)' : 'fehlt')}
                 · <a href="${url}" target="_blank" rel="noopener noreferrer">Schlüssel holen</a>
-                ${st[name].set ? `· <button class="linkbtn" data-check="${{ ANTHROPIC_API_KEY: 'anthropic', AZURE_SPEECH_KEY: 'azure', PEXELS_API_KEY: 'pexels', ELEVENLABS_API_KEY: 'elevenlabs' }[name]}">Verbindung testen</button>` : ''}</div></div></div>`).join('')}
+                ${st[name].set ? `· <button class="linkbtn" data-check="${{ ANTHROPIC_API_KEY: 'anthropic', AZURE_SPEECH_KEY: 'azure', PEXELS_API_KEY: 'pexels', PIXABAY_API_KEY: 'pixabay', ELEVENLABS_API_KEY: 'elevenlabs' }[name]}">Verbindung testen</button>` : ''}</div></div></div>`).join('')}
           <footer><button class="btn-primary small" data-save="card-keys">${icon('i-check')}Speichern</button></footer>
         </section>
         <section class="scard glass" id="card-voice" style="margin-top:16px">

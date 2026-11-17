@@ -85,8 +85,8 @@ def preflight(cfg: Config, args: argparse.Namespace, needs_llm: bool) -> None:
         missing.append("ANTHROPIC_API_KEY")
     if not args.script_only:
         missing += required_keys(cfg, args.voice, args.voice_file)
-        if not cfg.env("PEXELS_API_KEY"):
-            log.warning("PEXELS_API_KEY fehlt – B-Roll nur aus assets/broll/ bzw. Farbflächen.")
+        if not (cfg.env("PEXELS_API_KEY") or cfg.env("PIXABAY_API_KEY")):
+            log.warning("Kein Clip-Schlüssel (PIXABAY_API_KEY oder PEXELS_API_KEY) – B-Roll nur aus assets/broll/ bzw. Farbflächen.")
     if missing:
         raise ConfigError(f"Fehlende Keys in .env: {', '.join(missing)}\n"
                           f"Vorlage: .env.example – woher die Keys kommen, steht in der README.")

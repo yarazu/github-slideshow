@@ -5,7 +5,7 @@ Desktop-App mit durchscheinender Liquid-Glass-Oberfläche (`python app.py`) und 
 - 1080 × 1920 (9:16), 30 fps, H.264 + AAC, MP4, **61–90 s** (Ziel 65–75 s – TikTok vergütet erst ab 1 Minute)
 - deutsche KI-Stimme (Azure, optional ElevenLabs) oder deine eigene Aufnahme
 - große animierte Untertitel (1–3 Wörter, aktives Wort gelb) im mittleren Drittel; der Hook erscheint in Sekunde 0–2 auf einer Milchglas-Karte
-- B-Roll von Pexels (hochkant, kommerziell nutzbar), Bildwechsel alle 2–4 s, leichter Zoom; Fallback: Ken-Burns auf Pexels-Fotos
+- B-Roll von Pixabay oder Pexels (kommerziell nutzbar), Bildwechsel alle 2–4 s, leichter Zoom; Fallback: Ken-Burns auf Fotos
 - leise Hintergrundmusik aus `assets/music/` (18 dB unter der Stimme), Lautheit auf −14 LUFS normalisiert
 - dazu `cover.jpg`, `beschreibung.txt` (Text + 3–5 Hashtags + KI-Label-Hinweis) und `meta.json` (Quellen, Clips mit Urheber, Dauer …)
 
@@ -126,11 +126,12 @@ Am einfachsten in der App unter **Einstellungen** eintragen; sie stehen danach i
 | `ANTHROPIC_API_KEY` | Themen, Recherche, Skripte, Trends | [console.anthropic.com](https://console.anthropic.com) → *Settings → API Keys*. Guthaben/Abrechnung einrichten. Für die Faktenrecherche muss die **Websuche** in der Console für deine Organisation erlaubt sein (sonst `SCRIPT_WEB_SEARCH=false`). |
 | `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` | Standard-Stimme | [portal.azure.com](https://portal.azure.com) → *Ressource erstellen* → **Speech** (Azure AI Speech) → Region z. B. *West Europe* → Tarif **F0** (kostenlos, 0,5 Mio. Zeichen/Monat ≈ 400 Videos) oder S0 → *Schlüssel und Endpunkt* → „Schlüssel 1“ und Region (z. B. `westeurope`) kopieren. Stimmen anhören: [Speech Studio → Voice Gallery](https://speech.microsoft.com/portal/voicegallery). |
 | `ELEVENLABS_API_KEY` + `ELEVENLABS_VOICE_ID` | optionale Stimme | [elevenlabs.io](https://elevenlabs.io) → Profil → *API Keys*; Voice-ID in der Voice Library („ID kopieren“). Kommerzielle Nutzung erst mit bezahltem Abo – aktuelle Bedingungen prüfen. |
-| `PEXELS_API_KEY` | B-Roll-Videos und -Fotos | [pexels.com/api](https://www.pexels.com/api/) → kostenloses Konto → *Your API Key*. Limit: 200 Anfragen/Stunde, 20.000/Monat (Suchergebnisse werden 7 Tage gecacht). |
+| `PIXABAY_API_KEY` | B-Roll-Videos und -Fotos | [pixabay.com/api/docs](https://pixabay.com/api/docs/) → kostenloses Konto → der Schlüssel steht nach der Anmeldung direkt auf der Seite (Abschnitt „Parameters“, Feld `key`). Lizenz: kommerziell nutzbar, keine Namensnennung nötig. Limit: 100 Anfragen/Minute. |
+| `PEXELS_API_KEY` | optional, zusätzliche Clips | [pexels.com/api](https://www.pexels.com/api/). Pexels vergibt seit Herbst 2026 vorerst **keine neuen Schlüssel**; ein vorhandener funktioniert weiter. Sind beide Schlüssel eingetragen, sucht die App zuerst bei Pexels, dann bei Pixabay. |
 
 Weitere Einstellungen in `.env`: `ANTHROPIC_MODEL` (Standard `claude-sonnet-5-5`), `ANTHROPIC_EFFORT` (low/medium/high), `TTS_PROVIDER` (azure/elevenlabs), `AZURE_SPEECH_RATE` (Sprechtempo, Standard `+5%`).
 
-Grobe Kosten pro Video: Claude ca. 0,10–0,40 $ (inkl. ca. 6 Websuchen à 0,01 $), Azure im Free-Tier 0 €, Pexels kostenlos.
+Grobe Kosten pro Video: Claude ca. 0,10–0,40 $ (inkl. ca. 6 Websuchen à 0,01 $), Azure im Free-Tier 0 €, Pixabay/Pexels kostenlos.
 
 ---
 
@@ -206,7 +207,7 @@ output/2026-10-27_drei-herzen-blaues-blut/
 ├── cover.jpg          Titelbild (Titel auf einer Glas-Karte, im 3:4-sicheren Bereich des Profilrasters)
 ├── beschreibung.txt   Beschreibung + Hashtags + Hinweis „KI-Label beim Upload aktivieren“
 └── meta.json          Nische, Hook, Quellen (+ Erreichbarkeitsprüfung), Dauer, Lautheit,
-                       Stimme, Musik, alle Clips mit Pexels-Link und Urheber, Hinweise
+                       Stimme, Musik, alle Clips mit Quell-Link und Urheber, Hinweise
 ```
 
 **Vor dem Upload:** `meta.json → hinweise` lesen (z. B. nicht erreichbare Quellen, Shots ohne passendes Bild) und die Quellen kurz gegenprüfen. Beim Upload in TikTok unter *Weitere Optionen* **„KI-generierte Inhalte“** einschalten.
@@ -220,7 +221,7 @@ output/2026-10-27_drei-herzen-blaues-blut/
 3. **Skript** – Claude schreibt JSON nach festen Regeln (160–185 Wörter, Hook in 2 s ohne Begrüßung, 3–5 Punkte mit Mini-Cliffhangern, stärkster Fakt zuletzt, Loop oder Teil 2, nur belegte Fakten, keine Gesundheits-/Finanzratschläge). Verstöße werden automatisch nachgebessert.
 4. **Stimme** – Azure/ElevenLabs/Aufnahme → Dauer messen. Unter 61 s wird das Skript verlängert, über 90 s gekürzt, dann neu vertont.
 5. **Wortzeiten** – faster-whisper hört die fertige Tonspur ab; die Wörter werden mit dem Skript abgeglichen (richtige Schreibweise, Szenenzuordnung).
-6. **B-Roll** – pro Szene Shots à 2–4 s; Suche: eigene Clips in `assets/broll/` → Pexels-Video hochkant → quer (zugeschnitten) → Pexels-Foto (Ken Burns) → Farbfläche.
+6. **B-Roll** – pro Szene Shots à 2–4 s; Suche: eigene Clips in `assets/broll/` → Stock-Video hochkant (Pexels, dann Pixabay) → quer (zugeschnitten) → Stock-Foto (Ken Burns) → Farbfläche.
 7. **Render** – Shots auf 9:16 zuschneiden + leichter Zoom, Hook-Karte aus Milchglas einblenden (das Video dahinter wird unscharf), Untertitel (`.ass`) einbrennen, Musik mischen, 2-Pass-Loudnorm auf −14 LUFS, Endkontrolle mit ffprobe.
 8. **Texte** – Cover, Beschreibung, `meta.json`; Eintrag in `data/history.json`.
 
@@ -230,7 +231,7 @@ output/2026-10-27_drei-herzen-blaues-blut/
 
 ### Eigene Clips (optional)
 
-Lege eigene Videos/Fotos in `assets/broll/` ab und benenne sie mit englischen Stichworten, z. B. `octopus_reef_closeup.mp4`. Passt ein Suchbegriff, haben sie Vorrang vor Pexels.
+Lege eigene Videos/Fotos in `assets/broll/` ab und benenne sie mit englischen Stichworten, z. B. `octopus_reef_closeup.mp4`. Passt ein Suchbegriff, haben sie Vorrang vor Pixabay und Pexels.
 
 ---
 
@@ -254,9 +255,9 @@ Lege eigene Videos/Fotos in `assets/broll/` ab und benenne sie mit englischen St
 | `ffmpeg/ffprobe wurde nicht gefunden` | ffmpeg installieren, Terminal neu öffnen |
 | `faster-whisper-Modell … konnte nicht geladen werden` | Internet beim ersten Lauf nötig (huggingface.co); kleineres Modell in `settings.yaml` (`whisper.model: base`) |
 | `Azure Speech: Key ungültig oder Region falsch` | Region muss zur Ressource passen, z. B. `westeurope` |
-| `Pexels-Limit erreicht` | eine Stunde warten; Suchen werden gecacht |
+| `Pexels-Limit erreicht` / `Pixabay-Limit erreicht` | kurz warten; Suchen werden gecacht |
 | `Die Aufnahme dauert … s` | eigene Aufnahme muss 61–90 s lang sein |
-| `x von y Shots ohne passendes Bildmaterial` | Pexels-Key prüfen oder Suchbegriffe im Skript konkreter machen |
+| `x von y Shots ohne passendes Bildmaterial` | Pixabay- bzw. Pexels-Key prüfen oder Suchbegriffe im Skript konkreter machen |
 
 Logs: `logs/factory_JJJJ-MM-TT.log`. Zwischendateien mit `--keep-work` in `work/`. Den Ordner `cache/` (Downloads, Whisper-Modell) kannst du jederzeit löschen.
 

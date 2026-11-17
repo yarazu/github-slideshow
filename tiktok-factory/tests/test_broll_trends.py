@@ -44,3 +44,46 @@ def test_trends_roundtrip_and_selection(tmp_path):
     mark_produced(path, parsed[1], "2026-10-27_kuerbisse")
     _, after = parse_trends(path)
     assert after[1].status.startswith("produziert") and after[0].is_open
+
+
+def test_pixabay_results_look_like_pexels(tmp_path, monkeypatch):
+    from factory import broll
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    calls = []
+    video_hits = {"hits": [
+        {"id": 1, "pageURL": "https://pixabay.com/videos/a-1/", "duration": 12, "user": "anna", "user_id": 7,
+         "videos": {"large": {"url": "", "width": 0, "height": 0},            # leer: wird übersprungen
+                    "medium": {"url": "https://cdn/v1m.mp4", "width": 1080, "height": 1920},
+                    "small": {"url": "https://cdn/v1s.mp4", "width": 720, "height": 1280}}},
+        {"id": 2, "pageURL": "https://pixabay.com/videos/b-2/", "duration": 30, "user": "ben", "user_id": 8,
+         "videos": {"large": {"url": "https://cdn/v2l.mp4", "width": 1920, "height": 1080}}},
+    ]}
+    photo_hits = {"hits": [{"id": 5, "pageURL": "https://pixabay.com/photos/c-5/", "user": "cara", "user_id": 9,
+                            "largeImageURL": "https://cdn/p5.jpg"}]}
+
+    def fake_request(method, url, **kwargs):
+        calls.append((url, kwargs["params"]))
+        return Resp(video_hits if "/videos/" in url else photo_hits)
+
+    monkeypatch.setattr(broll, "http_request", fake_request)
+    px = broll.PixabayClient("k", tmp_path)
+    portrait = px.search_videos("ocean", "portrait")
+    assert [v["id"] for v in portrait] == [1]                                         # Querformat aussortiert
+    assert [f["id"] for f in portrait[0]["video_files"]] == ["medium", "small"]
+    assert broll.pick_video_file(portrait[0], 1080, 1920)["link"] == "https://cdn/v1m.mp4"
+    assert portrait[0]["user"] == {"name": "anna", "url": "https://pixabay.com/users/anna-7/"}
+    assert len(px.search_videos("ocean", None)) == 2
+    assert len(calls) == 1                                                            # zweite Suche aus dem Cache
+    assert calls[0][1]["key"] == "k" and calls[0][1]["safesearch"] == "true"
+    photo = px.search_photos("ocean")[0]
+    assert photo["src"]["original"] == "https://cdn/p5.jpg" and photo["photographer"] == "cara"

@@ -125,6 +125,7 @@ def pick_video_file(video: dict, width: int, height: int) -> dict | None:
 
 class PexelsClient:
     API = "https://api.pexels.com"
+    name = "pexels"
 
     def __init__(self, key: str, cache_dir: Path, per_page: int = 15, cache_days: float = 7):
         self.key = key
@@ -172,6 +173,75 @@ class PexelsClient:
         return download(url, self.cache_dir / "photos" / f"{photo['id']}_{width}x{height}.jpg")
 
 
+class PixabayClient:
+    """Pixabay (Pixabay Content License: kommerziell nutzbar, keine Namensnennung nötig).
+
+    Liefert Treffer im selben Format wie PexelsClient, damit die Auswahl-Logik für beide gilt.
+    Kostenloser Schlüssel: pixabay.com/api/docs (nach Anmeldung steht er direkt auf der Seite).
+    """
+    API = "https://pixabay.com/api"
+    name = "pixabay"
+
+    def __init__(self, key: str, cache_dir: Path, per_page: int = 15, cache_days: float = 7):
+        self.key = key
+        self.cache_dir = cache_dir
+        self.per_page = max(3, min(200, per_page))
+        self.cache_seconds = max(1.0, cache_days) * 86400   # Pixabay verlangt mind. 24 h Cache
+
+    def _get(self, path: str, params: dict) -> dict:
+        params = {**params, "safesearch": "true", "per_page": self.per_page}
+        ident = hashlib.sha1(json.dumps([path, sorted(params.items())]).encode()).hexdigest()[:16]
+        cache_file = self.cache_dir / "search" / f"{ident}.json"
+        if cache_file.exists() and time.time() - cache_file.stat().st_mtime < self.cache_seconds:
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        try:
+            resp = http_request("GET", f"{self.API}{path}", params={**params, "key": self.key}, timeout=20)
+        except HttpError as exc:
+            raise BrollError(f"Pixabay nicht erreichbar: {exc}") from exc
+        if resp.status_code in (400, 401, 403) and "key" in resp.text.lower():
+            raise BrollError("Pixabay-API-Key ungültig (PIXABAY_API_KEY).")
+        if resp.status_code == 429:
+            raise BrollError("Pixabay-Limit erreicht (100 Anfragen/Minute) – kurz warten und erneut starten.")
+        if resp.status_code != 200:
+            raise BrollError(f"Pixabay: HTTP {resp.status_code} {resp.text[:200]}")
+        data = resp.json()
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(json.dumps(data), encoding="utf-8")
+        return data
+
+    @staticmethod
+    def _user(hit: dict) -> dict:
+        name, uid = hit.get("user") or "", hit.get("user_id")
+        return {"name": name, "url": f"https://pixabay.com/users/{name}-{uid}/" if name and uid else None}
+
+    def search_videos(self, query: str, orientation: str | None) -> list[dict]:
+        hits = self._get("/videos/", {"q": query[:100], "video_type": "film"}).get("hits", [])
+        out = []
+        for hit in hits:
+            files = [{"id": size, "file_type": "video/mp4", "width": v.get("width"), "height": v.get("height"),
+                      "link": v.get("url")}
+                     for size, v in (hit.get("videos") or {}).items() if isinstance(v, dict) and v.get("url")]
+            video = {"id": hit["id"], "url": hit.get("pageURL"), "duration": hit.get("duration") or 0,
+                     "user": self._user(hit), "video_files": files}
+            portrait = any((f["height"] or 0) > (f["width"] or 0) for f in files)
+            if orientation == "portrait" and not portrait:
+                continue   # die API kennt keinen Hochkant-Filter – hier nachholen
+            out.append(video)
+        return out
+
+    def search_photos(self, query: str) -> list[dict]:
+        hits = self._get("/", {"q": query[:100], "image_type": "photo", "orientation": "vertical"}).get("hits", [])
+        return [{"id": h["id"], "url": h.get("pageURL"), "photographer": self._user(h)["name"],
+                 "photographer_url": self._user(h)["url"], "src": {"original": h.get("largeImageURL")}}
+                for h in hits if h.get("largeImageURL")]
+
+    def download_video(self, video: dict, file: dict) -> Path:
+        return download(file["link"], self.cache_dir / "videos" / f"{video['id']}_{file.get('id', 'x')}.mp4")
+
+    def download_photo(self, photo: dict, width: int, height: int) -> Path:
+        return download(photo["src"]["original"], self.cache_dir / "photos" / f"{photo['id']}.jpg")
+
+
 class LocalLibrary:
     """Eigene Clips/Fotos in assets/broll/ – Dateiname = Stichworte (z. B. gehirn_brain_scan.mp4)."""
 
@@ -214,11 +284,9 @@ class BrollFinder:
         self.recent = recent_ids
         self.used: set[str] = set()
         self.local = LocalLibrary(cfg.paths.broll)
-        key = cfg.env("PEXELS_API_KEY")
-        self.pexels = (PexelsClient(key, cfg.paths.cache / "pexels", cfg.broll.search_per_page,
-                                    cfg.broll.search_cache_days) if key else None)
-        if not self.pexels:
-            log.warning("PEXELS_API_KEY fehlt – nur eigene Clips aus assets/broll/ und Farbflächen.")
+        self.providers = stock_providers(cfg)
+        if not self.providers:
+            log.warning("Weder PEXELS_API_KEY noch PIXABAY_API_KEY – nur eigene Clips aus assets/broll/ und Farbflächen.")
         self.missing: list[int] = []
 
     def fill(self, shots: list[Shot], on_step: Callable[[float, str], None] | None = None) -> None:
@@ -242,55 +310,66 @@ class BrollFinder:
             asset = self.local.find(term, self.used, need)
             if asset:
                 return asset
-        if self.pexels:
-            for orientation in ("portrait", None):
-                for term in shot.terms:
-                    asset = self._pexels_video(term, need, orientation)
-                    if asset:
-                        return asset
-            for term in shot.terms:
-                asset = self._pexels_photo(term)
-                if asset:
-                    return asset
-            for term in self.niche.pexels_stil:
-                asset = self._pexels_video(term, need, "portrait") or self._pexels_photo(term)
-                if asset:
-                    return asset
+        steps = [(src, "video", term, o) for o in ("portrait", None) for term in shot.terms for src in self.providers]
+        steps += [(src, "photo", term, None) for term in shot.terms for src in self.providers]
+        steps += [(src, kind, term, "portrait") for term in self.niche.pexels_stil for src in self.providers
+                  for kind in ("video", "photo")]
+        for src, kind, term, orientation in steps:
+            try:
+                asset = self._video(src, term, need, orientation) if kind == "video" else self._photo(src, term)
+            except BrollError as exc:
+                if len(self.providers) == 1:
+                    raise
+                log.warning("%s – weiter mit der anderen Quelle", exc)
+                self.providers = [p for p in self.providers if p is not src]
+                return self._find(shot)
+            if asset:
+                return asset
         return MediaAsset("color", "generiert", query=shot.terms[0] if shot.terms else None)
 
     def _fresh(self, items: list[dict], prefix: str) -> list[dict]:
         unused = [i for i in items if f"{prefix}{i['id']}" not in self.used]
         return [i for i in unused if f"{prefix}{i['id']}" not in self.recent] or unused
 
-    def _pexels_video(self, term: str, need: float, orientation: str | None) -> MediaAsset | None:
-        videos = [v for v in self.pexels.search_videos(term, orientation) if (v.get("duration") or 0) >= need]
-        for video in self._fresh(videos, "pexels-video-"):
+    def _video(self, src, term: str, need: float, orientation: str | None) -> MediaAsset | None:
+        videos = [v for v in src.search_videos(term, orientation) if (v.get("duration") or 0) >= need]
+        for video in self._fresh(videos, f"{src.name}-video-"):
             file = pick_video_file(video, self.cfg.video.width, self.cfg.video.height)
             if not file:
                 continue
             try:
-                path = self.pexels.download_video(video, file)
+                path = src.download_video(video, file)
             except (HttpError, OSError) as exc:
                 log.warning("Download fehlgeschlagen (%s) – nächster Clip", exc)
                 continue
             user = video.get("user") or {}
-            return MediaAsset("video", "pexels", path, f"pexels-video-{video['id']}", video.get("url"),
+            return MediaAsset("video", src.name, path, f"{src.name}-video-{video['id']}", video.get("url"),
                               user.get("name"), user.get("url"), term, float(video.get("duration") or 0),
                               file["width"], file["height"])
         return None
 
-    def _pexels_photo(self, term: str) -> MediaAsset | None:
+    def _photo(self, src, term: str) -> MediaAsset | None:
         w, h = self.cfg.video.width * 2, self.cfg.video.height * 2
-        for photo in self._fresh(self.pexels.search_photos(term), "pexels-photo-"):
+        for photo in self._fresh(src.search_photos(term), f"{src.name}-photo-"):
             try:
-                path = self.pexels.download_photo(photo, w, h)
+                path = src.download_photo(photo, w, h)
             except (HttpError, OSError, KeyError) as exc:
                 log.warning("Foto-Download fehlgeschlagen (%s) – nächstes Foto", exc)
                 continue
-            return MediaAsset("photo", "pexels", path, f"pexels-photo-{photo['id']}", photo.get("url"),
+            return MediaAsset("photo", src.name, path, f"{src.name}-photo-{photo['id']}", photo.get("url"),
                               photo.get("photographer"), photo.get("photographer_url"), term,
                               width=w, height=h)
         return None
+
+
+def stock_providers(cfg: Config) -> list:
+    """Stock-Quellen mit Schlüssel, in Such-Reihenfolge: Pexels (falls vorhanden), dann Pixabay."""
+    providers = []
+    for env, cls, folder in (("PEXELS_API_KEY", PexelsClient, "pexels"), ("PIXABAY_API_KEY", PixabayClient, "pixabay")):
+        key = cfg.env(env)
+        if key:
+            providers.append(cls(key, cfg.paths.cache / folder, cfg.broll.search_per_page, cfg.broll.search_cache_days))
+    return providers
 
 
 def find_broll(shots: list[Shot], cfg: Config, niche: Niche, recent_ids: set[str],

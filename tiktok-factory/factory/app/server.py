@@ -55,6 +55,7 @@ SETTINGS: dict[str, dict] = {
     "ELEVENLABS_VOICE_ID": {"kind": "text", "default": ""},
     "ELEVENLABS_MODEL": {"kind": "text", "default": "eleven_multilingual_v2"},
     "PEXELS_API_KEY": {"kind": "secret"},
+    "PIXABAY_API_KEY": {"kind": "secret"},
 }
 
 AZURE_VOICES = {
@@ -166,7 +167,7 @@ def system_status(cfg: Config) -> dict:
     provider = (cfg.env("TTS_PROVIDER", "azure") or "azure").lower()
     keys = {"anthropic": bool(api_key(cfg)), "azure": bool(cfg.env("AZURE_SPEECH_KEY")),
             "elevenlabs": bool(cfg.env("ELEVENLABS_API_KEY") and cfg.env("ELEVENLABS_VOICE_ID")),
-            "pexels": bool(cfg.env("PEXELS_API_KEY"))}
+            "pexels": bool(cfg.env("PEXELS_API_KEY")), "pixabay": bool(cfg.env("PIXABAY_API_KEY"))}
     moods = sorted({n.musik_stimmung for n in cfg.niches.values()})
     music = {}
     for mood in moods:
@@ -228,6 +229,15 @@ def check_service(cfg: Config, name: str) -> dict:
             if resp.status_code == 200:
                 return result(True, f"Verbunden – {resp.json().get('total_results', '?')} Clips zu „ocean“")
             return result(False, "Schlüssel ungültig." if resp.status_code == 401 else f"Pexels: HTTP {resp.status_code}")
+        if name == "pixabay":
+            key = cfg.env("PIXABAY_API_KEY")
+            if not key:
+                return result(False, "Kein Schlüssel eingetragen.")
+            resp = http_request("GET", "https://pixabay.com/api/videos/", params={"key": key, "q": "ocean", "per_page": 3},
+                                retries=1, timeout=15)
+            if resp.status_code == 200:
+                return result(True, f"Verbunden – {resp.json().get('totalHits', '?')} Clips zu „ocean“")
+            return result(False, "Schlüssel ungültig." if resp.status_code in (400, 401, 403) else f"Pixabay: HTTP {resp.status_code}")
         if name == "elevenlabs":
             key, voice = cfg.env("ELEVENLABS_API_KEY"), cfg.env("ELEVENLABS_VOICE_ID")
             if not key:
